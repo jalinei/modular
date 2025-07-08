@@ -1,0 +1,46 @@
+{
+	"version": 1,
+	"allow_edit": true,
+	"plugins": [],
+	"panes": [
+		{
+			"width": 1,
+			"row": {
+				"3": 1
+			},
+			"col": {
+				"3": 1
+			},
+			"col_width": 3,
+			"widgets": [
+				{
+					"type": "owntech_plot_uplot",
+					"settings": {
+						"title": "test uplot",
+						"data": "[datasources[\"toto\"][\"y10\"],datasources[\"toto\"][\"y9\"]]",
+						"duration": 20000,
+						"refreshRate": 10000,
+						"yLabel": "Value",
+						"yMin": -300,
+						"yMax": 300,
+						"showLegend": true
+					}
+				}
+			]
+		}
+	],
+	"datasources": [
+		{
+			"name": "toto",
+			"type": "serialport_datasource",
+			"settings": {
+				"portPath": "/dev/ttyACM0",
+				"baudRate": 115200,
+				"separator": ":",
+				"eol": "\\r\\n",
+				"refresh": 1000
+			}
+		}
+	],
+	"columns": 3
+}

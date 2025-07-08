@@ -1,0 +1,83 @@
+{
+	"version": 1,
+	"allow_edit": true,
+	"plugins": [],
+	"panes": [
+		{
+			"width": 1,
+			"row": {
+				"3": 1,
+				"4": 1,
+				"5": 1
+			},
+			"col": {
+				"3": 1,
+				"4": 2,
+				"5": 3
+			},
+			"col_width": 3,
+			"widgets": [
+				{
+					"type": "owntech_plot_uplot",
+					"settings": {
+						"title": "hello",
+						"data": "datasources[\"toto\"][\"y7\"]",
+						"duration": 20000,
+						"refreshRate": 1000,
+						"yLabel": "Y1",
+						"yMin": -20,
+						"yMax": 20,
+						"showLegend": true
+					}
+				},
+				{
+					"type": "owntech_plot_uplot",
+					"settings": {
+						"title": "hello2",
+						"data": "datasources[\"toto\"][\"y9\"]",
+						"duration": 20000,
+						"refreshRate": 3000,
+						"yLabel": "y2",
+						"yMin": 0,
+						"yMax": 100,
+						"showLegend": true
+					}
+				}
+			]
+		},
+		{
+			"width": 1,
+			"row": {
+				"5": 1
+			},
+			"col": {
+				"5": -9
+			},
+			"col_width": 2,
+			"widgets": [
+				{
+					"type": "uplot_config_panel",
+					"settings": {}
+				},
+				{
+					"type": "uplot_config_panel",
+					"settings": {}
+				}
+			]
+		}
+	],
+	"datasources": [
+		{
+			"name": "toto",
+			"type": "serialport_datasource",
+			"settings": {
+				"portPath": "/dev/ttyACM0",
+				"baudRate": 115200,
+				"separator": ":",
+				"eol": "\\r\\n",
+				"refresh": 1000
+			}
+		}
+	],
+	"columns": 5
+}
