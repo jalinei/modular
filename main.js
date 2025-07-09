@@ -161,8 +161,8 @@ ipcMain.handle("write-serial-port", async (event, { path, data }) => {
 });
 
 // 📂 Start CSV recording for a given port
-ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eol }) => {
-        const port = openPorts.get(path);
+ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eol, order = 'old', addHeader = true, timestampMode = 'none' }) => {        
+		const port = openPorts.get(path);
         if (!port) {
                 throw new Error('port not open');
         }
@@ -171,7 +171,25 @@ ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eo
         }
         const sep = separator || ',';
         const eolStr = eol ? JSON.parse(`"${eol}"`) : '\n';
-        const stream = fs.createWriteStream(filePath, { flags: 'a' });
+        const recording = {
+                order,
+                addHeader,
+                timestampMode,
+                lines: [],
+                headerLine: null,
+                stream: null,
+                listener: null,
+                startTime: Date.now(),
+                headerWritten: false,
+                filePath,
+                sep,
+                eolStr
+        };
+
+        if (order === 'old') {
+                recording.stream = fs.createWriteStream(filePath, { flags: 'a' });
+        }
+
         let buffer = '';
         const listener = chunk => {
                 buffer += chunk.toString();
@@ -179,14 +197,45 @@ ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eo
                 buffer = lines.pop();
                 for (const line of lines) {
                         const values = parseLineCustom(line, sep);
-                        if (values.length) {
-                                stream.write(values.join(',') + '\n');
+                        if (!values.length) continue;
+
+                        if (addHeader && !recording.headerWritten) {
+                                const header = [];
+                                if (timestampMode !== 'none') {
+                                        header.push(timestampMode === 'relative' ? 'time_ms' : 'timestamp');
+                                }
+                                for (let i = 0; i < values.length; i++) {
+                                        header.push(`ch${i + 1}`);
+                                }
+                                const headerLine = header.join(',');
+                                if (order === 'old') {
+                                        recording.stream.write(headerLine + '\n');
+                                } else {
+                                        recording.headerLine = headerLine;
+                                }
+                                recording.headerWritten = true;
                         }
+
+                        const row = [];
+                        if (timestampMode === 'relative') {
+                                row.push(String(Date.now() - recording.startTime));
+                        } else if (timestampMode === 'absolute') {
+                                row.push(new Date().toISOString());
+                        }
+                        row.push(...values);
+
+                        const lineStr = row.join(',');
+                        if (order === 'old') {
+                                recording.stream.write(lineStr + '\n');
+                        } else {
+                                recording.lines.unshift(lineStr);
+						}
                 }
         };
+		recording.listener = listener;
         port.on('data', listener);
-        activeRecordings.set(path, { stream, listener });
-        return 'started';
+        activeRecordings.set(path, recording);
+		return 'started';
 });
 
 // 🛑 Stop CSV recording for a port
@@ -195,7 +244,16 @@ ipcMain.handle('stop-csv-record', async (event, { path }) => {
         if (!rec) return 'not recording';
         const port = openPorts.get(path);
         if (port) port.off('data', rec.listener);
-        await new Promise(res => rec.stream.end(res));
-        activeRecordings.delete(path);
+
+        if (rec.order === 'old') {
+                await new Promise(res => rec.stream.end(res));
+        } else {
+                const outLines = [];
+                if (rec.headerLine) outLines.push(rec.headerLine);
+                outLines.push(...rec.lines);
+                const content = outLines.join('\n') + '\n';
+                await fs.promises.writeFile(rec.filePath, content);
+        }
+		activeRecordings.delete(path);
         return 'stopped';
 });

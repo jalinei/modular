@@ -26,6 +26,33 @@
                 display_name: "End Of Line",
                 type: "text",
                 default_value: "\\n"
+            },
+            {
+                name: "order",
+                display_name: "Data Order",
+                type: "option",
+                options: [
+                    { name: "Old data on top", value: "old" },
+                    { name: "New data on top", value: "new" }
+                ],
+                default_value: "old"
+            },
+            {
+                name: "addHeader",
+                display_name: "Add label on the first line",
+                type: "boolean",
+                default_value: true
+            },
+            {
+                name: "timestampMode",
+                display_name: "Timestamp",
+                type: "option",
+                options: [
+                    { name: "None", value: "none" },
+                    { name: "Relative", value: "relative" },
+                    { name: "Absolute", value: "absolute" }
+                ],
+                default_value: "none"
             }
         ],
         newInstance: function (settings, newInstanceCallback) {
@@ -38,13 +65,55 @@
             this.settings = settings;
             this.ipc = window.require?.("electron")?.ipcRenderer;
             this.isRecording = false;
-            this.button = $('<button class="serial-rec-btn"></button>').text('Start Record');
+            this.container = $('<div style="height:100%; display:flex; flex-direction:column; gap:4px;"></div>');
+
+            const makeRow = (labelText, inputEl) => {
+                const row = $('<div style="display:flex; align-items:center; gap:4px;"></div>');
+                const label = $(`<label style="flex:1;">${labelText}</label>`);
+                row.append(label).append(inputEl);
+                return row;
+            };
+
+            this.orderSelect = $('<select style="flex:1; box-sizing:border-box;"></select>');
+            this.orderSelect.append('<option value="old">Old data on top</option>');
+            this.orderSelect.append('<option value="new">Early data on top</option>');
+
+            this.headerCheck = $('<input type="checkbox">');
+            this.timeSelect = $('<select style="flex:1; box-sizing:border-box;"></select>');
+            this.timeSelect.append('<option value="none">None</option>');
+            this.timeSelect.append('<option value="relative">Relative</option>');
+            this.timeSelect.append('<option value="absolute">Absolute</option>');
+
+            this.button = $('<button class="serial-rec-btn" style="width:100%; box-sizing:border-box; height:32px;"></button>').text('Start Record');
             this.portPath = null;
+            this.container.append(
+                makeRow('Data Order', this.orderSelect),
+                makeRow('Add label on the first line', this.headerCheck),
+                makeRow('Timestamp', this.timeSelect),
+                this.button
+            );
         }
 
         render(containerElement) {
-            $(containerElement).append(this.button);
+            this._syncControls();
+            $(containerElement).append(this.container);
             this.button.on('click', () => this._toggleRecord());
+
+            this.orderSelect.on('change', () => {
+                this.settings.order = this.orderSelect.val();
+            });
+            this.headerCheck.on('change', () => {
+                this.settings.addHeader = this.headerCheck.prop('checked');
+            });
+            this.timeSelect.on('change', () => {
+                this.settings.timestampMode = this.timeSelect.val();
+            });
+        }
+
+        _syncControls() {
+            this.orderSelect.val(this.settings.order || 'old');
+            this.headerCheck.prop('checked', !!this.settings.addHeader);
+            this.timeSelect.val(this.settings.timestampMode || 'none');
         }
 
         async _toggleRecord() {
@@ -60,7 +129,10 @@
                     path: this.portPath,
                     filePath: this.settings.filePath,
                     separator: dsSettings.separator || this.settings.separator,
-                    eol: dsSettings.eol || this.settings.eol
+                    eol: dsSettings.eol || this.settings.eol,
+                    order: this.settings.order,
+                    addHeader: this.settings.addHeader,
+                    timestampMode: this.settings.timestampMode
                 });
                 this.isRecording = true;
                 this.button.text('Stop Record');
@@ -78,7 +150,7 @@
         }
 
         getHeight() {
-            return 1;
+            return 3;
         }
     }
 })();
