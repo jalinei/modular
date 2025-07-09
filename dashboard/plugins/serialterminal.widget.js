@@ -36,11 +36,22 @@
                 if (Array.isArray(lines)) {
                     const max = parseInt(this.settings.maxLines) || 100;
                     const display = lines.slice(-max);
-                    this.container.text(display.join("\n"));
+                    const formatted = this._formatLines(display, ds.separator || ":");
+                    this.container.html(formatted.join("<br/>"));
                 }
             } catch (e) {
                 console.error("Terminal polling failed", e);
             }
+        }
+
+        _formatLines(lines, separator) {
+            return lines.map(line => {
+                const parts = line.trim().split(separator).filter(p => p !== "");
+                return parts.map((p, idx) => {
+                    const color = `hsl(${(idx * 60) % 360}, 70%, 50%)`;
+                    return `<span style="color:${color}">${p}</span>`;
+                }).join(" ");
+            });
         }
 
         _updateTimer() {
