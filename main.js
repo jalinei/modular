@@ -1,12 +1,16 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { SerialPort } = require('serialport');
+const fs = require('fs');
 
+const activeRecordings = new Map(); // Active CSV recordings mapped by port path
 const openPorts = new Map(); // key: path, value: SerialPort instance
 const terminalBuffers = new Map(); // key: path, value: array of raw lines
 let serialBuffer = [];
 const MAX_BUFFER_SIZE = 1000;
 const MAX_TERMINAL_LINES = 200;
+
+
 
 let currentSettings = {
 	separator: ":",
@@ -26,6 +30,11 @@ function parseLine(line) {
 	const rawItems = clean.split(currentSettings.separator).filter(s => s.trim() !== "");
 	const values = rawItems.map(v => parseFloat(v)).filter(n => !isNaN(n));
 	return values;
+}
+
+function parseLineCustom(line, sep) {
+        const clean = line.trim();
+        return clean.split(sep).map(s => s.trim()).filter(s => s !== "");
 }
 
 function createWindow() {
@@ -120,16 +129,15 @@ ipcMain.handle("get-terminal-buffer", (event, { path }) => {
 ipcMain.handle("close-serial-port", async (event, { path }) => {
 	const port = openPorts.get(path);
 	if (port && port.isOpen) {
-		return new Promise((resolve, reject) => {
-			port.close(err => {
-					if (err) return reject(err.message);
-					openPorts.delete(path);
-					terminalBuffers.delete(path);
-					resolve("closed");
+			return new Promise((resolve, reject) => {
+					port.close(err => {
+							if (err) return reject(err.message);
+							openPorts.delete(path);
+							resolve("closed");
+					});
 			});
-		});
 	} else {
-		return "not open";
+			return "not open";
 	}
 });
 
@@ -150,4 +158,44 @@ ipcMain.handle("write-serial-port", async (event, { path, data }) => {
         } else {
                 throw new Error("No open serial port");
         }
+});
+
+// 📂 Start CSV recording for a given port
+ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eol }) => {
+        const port = openPorts.get(path);
+        if (!port) {
+                throw new Error('port not open');
+        }
+        if (activeRecordings.has(path)) {
+                return 'already recording';
+        }
+        const sep = separator || ',';
+        const eolStr = eol ? JSON.parse(`"${eol}"`) : '\n';
+        const stream = fs.createWriteStream(filePath, { flags: 'a' });
+        let buffer = '';
+        const listener = chunk => {
+                buffer += chunk.toString();
+                const lines = buffer.split(eolStr);
+                buffer = lines.pop();
+                for (const line of lines) {
+                        const values = parseLineCustom(line, sep);
+                        if (values.length) {
+                                stream.write(values.join(',') + '\n');
+                        }
+                }
+        };
+        port.on('data', listener);
+        activeRecordings.set(path, { stream, listener });
+        return 'started';
+});
+
+// 🛑 Stop CSV recording for a port
+ipcMain.handle('stop-csv-record', async (event, { path }) => {
+        const rec = activeRecordings.get(path);
+        if (!rec) return 'not recording';
+        const port = openPorts.get(path);
+        if (port) port.off('data', rec.listener);
+        await new Promise(res => rec.stream.end(res));
+        activeRecordings.delete(path);
+        return 'stopped';
 });
