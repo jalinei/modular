@@ -67,6 +67,16 @@
             this.isRecording = false;
             this.container = $('<div style="height:100%; display:flex; flex-direction:column; gap:4px;"></div>');
 
+            // Dropdown of available serial datasources
+            this.dsSelect = $('<select style="flex:1; box-sizing:border-box;"></select>');
+            this._refreshDatasourceOptions();
+            this.dsSelect.on('change', () => {
+                this.settings.datasource = this.dsSelect.val();
+            });
+
+            this._configHandler = () => this._refreshDatasourceOptions();
+            freeboard.on && freeboard.on('config_updated', this._configHandler);
+
             const makeRow = (labelText, inputEl) => {
                 const row = $('<div style="display:flex; align-items:center; gap:4px;"></div>');
                 const label = $(`<label style="flex:1;">${labelText}</label>`);
@@ -86,7 +96,9 @@
 
             this.button = $('<button class="serial-rec-btn" style="width:100%; box-sizing:border-box; height:32px;"></button>').text('Start Record');
             this.portPath = null;
+
             this.container.append(
+                makeRow('Datasource', this.dsSelect),
                 makeRow('Data Order', this.orderSelect),
                 makeRow('Add label on the first line', this.headerCheck),
                 makeRow('Timestamp', this.timeSelect),
@@ -114,6 +126,30 @@
             this.orderSelect.val(this.settings.order || 'old');
             this.headerCheck.prop('checked', !!this.settings.addHeader);
             this.timeSelect.val(this.settings.timestampMode || 'none');
+            this._refreshDatasourceOptions();
+            if (this.settings.datasource) {
+                this.dsSelect.val(this.settings.datasource);
+            }
+        }
+
+        _refreshDatasourceOptions() {
+            const live = freeboard.getLiveModel?.();
+            if (!live || typeof live.datasources !== 'function') return;
+            const list = live.datasources();
+            const current = this.settings.datasource;
+            this.dsSelect.empty();
+            list.forEach(ds => {
+                try {
+                    if (ds.type && ds.type() === 'serialport_datasource') {
+                        const name = ds.name();
+                        this.dsSelect.append(`<option value="${name}">${name}</option>`);
+                    }
+                } catch (e) { /* ignore */ }
+            });
+            if (current && this.dsSelect.find(`option[value='${current}']`).length === 0) {
+                this.dsSelect.append(`<option value="${current}">${current}</option>`);
+            }
+            this.dsSelect.val(current);
         }
 
         async _toggleRecord() {
@@ -141,11 +177,15 @@
 
         onSettingsChanged(newSettings) {
             this.settings = newSettings;
+            this._syncControls();
         }
 
         onDispose() {
             if (this.isRecording && this.ipc) {
                 this.ipc.invoke('stop-csv-record', { path: this.portPath });
+            }
+            if (this._configHandler && freeboard.off) {
+                freeboard.off('config_updated', this._configHandler);
             }
         }
 
