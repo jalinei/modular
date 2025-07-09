@@ -48,8 +48,14 @@
             buttons.forEach(cfg => {
                 const btn = $('<button></button>')
                     .text(cfg.label || cfg.command)
-                    .css({ margin: "2px", display: layout === "horizontal" ? "inline-block" : "block" });
-                btn.on('click', () => this._sendCommand(cfg.command));
+                    .css({
+                        margin: "2px",
+                        display: layout === "horizontal" ? "inline-block" : "block",
+                        width: layout === "horizontal" ? "80px" : "100%",
+                        height: "32px",
+                        boxSizing: "border-box"
+                    });
+                    btn.on('click', () => this._sendCommand(cfg.command));
                 this.container.append(btn);
             });
         }

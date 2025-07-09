@@ -3,8 +3,10 @@ const path = require('path');
 const { SerialPort } = require('serialport');
 
 const openPorts = new Map(); // key: path, value: SerialPort instance
+const terminalBuffers = new Map(); // key: path, value: array of raw lines
 let serialBuffer = [];
 const MAX_BUFFER_SIZE = 1000;
+const MAX_TERMINAL_LINES = 200;
 
 let currentSettings = {
 	separator: ":",
@@ -66,23 +68,29 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
 	});
 
 	port.open(err => {
-		if (err) {
-			console.error("Serial open error:", err.message);
-			return;
-		}
-		console.log("✅ Serial port opened:", path);
+			if (err) {
+					console.error("Serial open error:", err.message);
+					return;
+			}
+			console.log("✅ Serial port opened:", path);
 	});
 
 	let rawBuffer = "";
 
+	terminalBuffers.set(path, []);
+
 	port.on("data", chunk => {
-		rawBuffer += chunk.toString();
-		const lines = rawBuffer.split(currentSettings.eol);
-		rawBuffer = lines.pop(); // keep the last (possibly incomplete) line
-    for (const line of lines) {
-      const parsed = parseLine(line);
-      if (parsed.length) addToBuffer(parsed);
-    }
+			rawBuffer += chunk.toString();
+			const lines = rawBuffer.split(currentSettings.eol);
+			rawBuffer = lines.pop(); // keep the last (possibly incomplete) line
+			const termBuf = terminalBuffers.get(path) || [];
+			for (const line of lines) {
+					const parsed = parseLine(line);
+					if (parsed.length) addToBuffer(parsed);
+					termBuf.push(line);
+					if (termBuf.length > MAX_TERMINAL_LINES) termBuf.shift();
+			}
+			terminalBuffers.set(path, termBuf);
 	});
 
 	port.on("error", err => {
@@ -90,8 +98,9 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
 	});
 
 	port.on("close", () => {
-		console.log(`🔌 Serial port ${path} closed.`);
-		openPorts.delete(path);
+			console.log(`🔌 Serial port ${path} closed.`);
+			openPorts.delete(path);
+			terminalBuffers.delete(path);
 	});
 
 	openPorts.set(path, port);
@@ -99,7 +108,12 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
 
 // 📥 Renderer pulls latest parsed data
 ipcMain.handle("get-serial-buffer", () => {
-	return serialBuffer.length > 0 ? serialBuffer[serialBuffer.length - 1] : [];
+        return serialBuffer.length > 0 ? serialBuffer[serialBuffer.length - 1] : [];
+});
+
+// 📄 Get terminal lines for a port
+ipcMain.handle("get-terminal-buffer", (event, { path }) => {
+        return terminalBuffers.get(path) || [];
 });
 
 // ❌ Close port
@@ -108,12 +122,32 @@ ipcMain.handle("close-serial-port", async (event, { path }) => {
 	if (port && port.isOpen) {
 		return new Promise((resolve, reject) => {
 			port.close(err => {
-				if (err) return reject(err.message);
-				openPorts.delete(path);
-				resolve("closed");
+					if (err) return reject(err.message);
+					openPorts.delete(path);
+					terminalBuffers.delete(path);
+					resolve("closed");
 			});
 		});
 	} else {
 		return "not open";
 	}
+});
+
+// ➡️ Write data to an open serial port
+ipcMain.handle("write-serial-port", async (event, { path, data }) => {
+        // Pick specified port or default to the first one
+        const targetPort = path ? openPorts.get(path) : openPorts.values().next().value;
+        if (targetPort && targetPort.isOpen) {
+                return new Promise((resolve, reject) => {
+                        targetPort.write(data, err => {
+                                if (err) return reject(err.message);
+                                targetPort.drain(drainErr => {
+                                        if (drainErr) return reject(drainErr.message);
+                                        resolve("written");
+                                });
+                        });
+                });
+        } else {
+                throw new Error("No open serial port");
+        }
 });
