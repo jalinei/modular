@@ -54,7 +54,19 @@
         _startFlash() {
             const filePath = this.selectedFilePath;
             const port = this.portSelect.val();
-            if (!filePath || !port || !this.ipc) return;
+
+            if (!this.ipc) {
+                this.logArea.val('Error: IPC unavailable.\n').show();
+                return;
+            }
+
+            if (!filePath || !port) {
+                this.logArea
+                    .val('Please select both a firmware file and a port.\n')
+                    .show();
+                return;
+            }
+
             this.logArea.val('Flashing started...\n').show();
             this.progressWrapper.show();
             this.progressWrapper.find('.progress-bar').css('width','0%').text('0%');
