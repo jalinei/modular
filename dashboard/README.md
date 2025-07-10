@@ -162,6 +162,10 @@ Attach to a global freeboard event.
 
 See http://freeboard.github.io/freeboard/docs/plugin_example.html for info on how to build plugins for freeboard.
 
+### Serial Port Reader Datasource
+
+The **Serial Port Reader** datasource supports multiple channels. Each channel can be given a custom name and color from the datasource settings. Colors may be entered manually or chosen automatically using one of the built‑in palettes (Default, Pastel or Dark).
+
 ### Testing Plugins
 
 Just edit index.html and add a link to your javascript file near the end of the head.js script loader, like:
