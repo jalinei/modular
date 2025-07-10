@@ -15,6 +15,9 @@ function cleanupCurrentProcess() {
 function runMcumgrCommand(mcumgrPath, args, onData, onError, onClose) {
     if (aborted) return null;
     currentFlashProcess = spawn(mcumgrPath, args);
+    currentFlashProcess.on('error', err => {
+        if (onError) onError(`Process error: ${err.message}`);
+    });
     currentFlashProcess.stdout.on('data', d => onData && onData(d.toString()));
     currentFlashProcess.stderr.on('data', d => onError && onError(d.toString()));
     currentFlashProcess.on('close', code => {
