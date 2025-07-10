@@ -19,7 +19,8 @@
             this.container = $('<div style="display:flex; flex-direction:column; height:100%; gap:4px;"></div>');
             this.portSelect = $('<select style="width:100%; box-sizing:border-box;"></select>');
             this.refreshBtn = $('<button>Refresh Ports</button>');
-            this.fileInput = $('<input type="file" accept=".bin" style="width:100%; box-sizing:border-box;" />');
+            this.fileLabel = $('<span>No file selected</span>');
+            this.fileBtn = $('<button>Select Firmware</button>');
             this.selectedFilePath = null;
             this.startBtn = $('<button>Flash Firmware</button>');
             this.cancelBtn = $('<button style="display:none;">Cancel</button>');
@@ -33,11 +34,18 @@
             this._refreshPorts();
             this.refreshBtn.on('click', () => this._refreshPorts());
             $(el).append(this.container);
-            this.container.append(this.portSelect, this.refreshBtn, this.fileInput, this.startBtn, this.cancelBtn, this.progressWrapper, this.logArea);
+            const fileRow = $('<div style="display:flex; gap:4px;"></div>');
+            fileRow.append(this.fileBtn, this.fileLabel);
+            this.container.append(this.portSelect, this.refreshBtn, fileRow, this.startBtn, this.cancelBtn, this.progressWrapper, this.logArea);
 
-            this.fileInput.on('change', e => {
-                const f = e.target.files[0];
-                this.selectedFilePath = f && 'path' in f ? f.path : null;
+            this.fileBtn.on('click', async () => {
+                if (!this.ipc) return;
+                const chosen = await this.ipc.invoke('choose-firmware-file');
+                if (chosen) {
+                    this.selectedFilePath = chosen;
+                    const name = this.path ? this.path.basename(chosen) : chosen;
+                    this.fileLabel.text(name);
+                }
             });
             this.startBtn.on('click', () => this._startFlash());
             this.cancelBtn.on('click', () => this._cancelFlash());
@@ -53,8 +61,7 @@
         }
 
         _startFlash() {
-            const selected = this.fileInput[0]?.files?.[0];
-            const filePath = selected && 'path' in selected ? selected.path : this.selectedFilePath;
+            const filePath = this.selectedFilePath;
             const port = this.portSelect.val();
 
             if (!this.ipc) {

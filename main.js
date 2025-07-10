@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { SerialPort } = require('serialport');
 const fs = require('fs');
@@ -262,6 +262,18 @@ ipcMain.handle('stop-csv-record', async (event, { path }) => {
         }
         activeRecordings.delete(path);
         return 'stopped';
+});
+
+// 📂 Open a dialog to choose a firmware binary file
+ipcMain.handle('choose-firmware-file', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openFile'],
+        filters: [{ name: 'Firmware', extensions: ['bin'] }]
+    });
+    if (canceled || filePaths.length === 0) {
+        return null;
+    }
+    return filePaths[0];
 });
 
 // 🔥 Flash firmware to a board over serial
