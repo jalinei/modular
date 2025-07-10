@@ -19,6 +19,7 @@
             this.portSelect = $('<select style="width:100%; box-sizing:border-box;"></select>');
             this.refreshBtn = $('<button>Refresh Ports</button>');
             this.fileInput = $('<input type="file" accept=".bin" style="width:100%; box-sizing:border-box;" />');
+            this.selectedFilePath = null;
             this.startBtn = $('<button>Flash Firmware</button>');
             this.cancelBtn = $('<button style="display:none;">Cancel</button>');
             this.progressWrapper = $('<div class="progress" style="height:20px; display:none;"><div class="progress-bar" style="width:0%"></div></div>');
@@ -33,6 +34,10 @@
             $(el).append(this.container);
             this.container.append(this.portSelect, this.refreshBtn, this.fileInput, this.startBtn, this.cancelBtn, this.progressWrapper, this.logArea);
 
+            this.fileInput.on('change', e => {
+                const f = e.target.files[0];
+                this.selectedFilePath = f ? f.path : null;
+            });
             this.startBtn.on('click', () => this._startFlash());
             this.cancelBtn.on('click', () => this._cancelFlash());
         }
@@ -47,15 +52,15 @@
         }
 
         _startFlash() {
-            const file = this.fileInput[0].files[0];
+            const filePath = this.selectedFilePath;
             const port = this.portSelect.val();
-            if (!file || !port || !this.ipc) return;
+            if (!filePath || !port || !this.ipc) return;
             this.logArea.val('Flashing started...\n').show();
             this.progressWrapper.show();
             this.progressWrapper.find('.progress-bar').css('width','0%').text('0%');
             this.startBtn.hide();
             this.cancelBtn.show();
-            this.ipc.invoke('start-flash', { comPort: port, firmwarePath: file.path });
+            this.ipc.invoke('start-flash', { comPort: port, firmwarePath: filePath });
             this.ipc.on('flash-progress', this._progressListener);
             this.ipc.once('flash-complete', this._completeListener);
         }
