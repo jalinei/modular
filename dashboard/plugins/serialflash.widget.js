@@ -15,6 +15,7 @@
         constructor(settings) {
             this.settings = settings;
             this.ipc = window.require?.('electron')?.ipcRenderer;
+            this.path = window.require?.('path');
             this.container = $('<div style="display:flex; flex-direction:column; height:100%; gap:4px;"></div>');
             this.portSelect = $('<select style="width:100%; box-sizing:border-box;"></select>');
             this.refreshBtn = $('<button>Refresh Ports</button>');
@@ -36,7 +37,7 @@
 
             this.fileInput.on('change', e => {
                 const f = e.target.files[0];
-                this.selectedFilePath = f ? f.path : null;
+                this.selectedFilePath = f && 'path' in f ? f.path : null;
             });
             this.startBtn.on('click', () => this._startFlash());
             this.cancelBtn.on('click', () => this._cancelFlash());
@@ -52,7 +53,8 @@
         }
 
         _startFlash() {
-            const filePath = this.selectedFilePath;
+            const selected = this.fileInput[0]?.files?.[0];
+            const filePath = selected && 'path' in selected ? selected.path : this.selectedFilePath;
             const port = this.portSelect.val();
 
             if (!this.ipc) {
@@ -67,11 +69,13 @@
                 return;
             }
 
-            this.logArea.val('Flashing started...\n').show();
+            const fName = this.path ? this.path.basename(filePath) : filePath;
+            this.logArea.val(`Flashing ${fName}...\n`).show();
             this.progressWrapper.show();
             this.progressWrapper.find('.progress-bar').css('width','0%').text('0%');
             this.startBtn.hide();
             this.cancelBtn.show();
+            this.selectedFilePath = filePath;
             this.ipc.invoke('start-flash', { comPort: port, firmwarePath: filePath });
             this.ipc.on('flash-progress', this._progressListener);
             this.ipc.once('flash-complete', this._completeListener);
@@ -114,3 +118,4 @@
         getHeight() { return 4; }
     }
 })();
+
