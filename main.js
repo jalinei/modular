@@ -2,6 +2,12 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { SerialPort } = require('serialport');
 const fs = require('fs');
+const { flashFirmware, cancelFlash } = require('./flasher');
+
+// Path to mcumgr binary, assumes it is bundled alongside the app in a tools folder
+const mcumgrBinary = process.platform === 'win32' ? 'mcumgr.exe'
+    : process.platform === 'darwin' ? 'mcumgr-mac' : 'mcumgr';
+const mcumgrPath = path.join(__dirname, 'tools', mcumgrBinary);
 
 const activeRecordings = new Map(); // Active CSV recordings mapped by port path
 const openPorts = new Map(); // key: path, value: SerialPort instance
@@ -254,6 +260,23 @@ ipcMain.handle('stop-csv-record', async (event, { path }) => {
                 const content = outLines.join('\n') + '\n';
                 await fs.promises.writeFile(rec.filePath, content);
         }
-		activeRecordings.delete(path);
+        activeRecordings.delete(path);
         return 'stopped';
+});
+
+// 🔥 Flash firmware to a board over serial
+ipcMain.handle('start-flash', (event, { comPort, firmwarePath, mcumgrPath: userPath }) => {
+    return new Promise(resolve => {
+        flashFirmware(
+            { comPort, firmwarePath, mcumgrPath: userPath || mcumgrPath },
+            msg => event.sender.send('flash-progress', msg),
+            () => event.sender.send('flash-complete')
+        );
+        resolve();
+    });
+});
+
+// ❌ Cancel flashing
+ipcMain.on('cancel-flash', () => {
+    cancelFlash();
 });
