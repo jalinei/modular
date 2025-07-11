@@ -6,10 +6,24 @@
                 const ipcRenderer = window.require?.("electron")?.ipcRenderer;
                 let latestData = [];
                 function parseHeaders(input) {
+                        const out = [];
                         if (Array.isArray(input)) {
-                                return input.map(obj => typeof obj === "string" ? obj : obj.label).filter(Boolean);
+                                input.forEach(item => {
+                                        if (typeof item === "string") {
+                                                out.push({ label: item });
+                                        } else if (item && typeof item === "object") {
+                                                const h = { label: item.label || "" };
+                                                if (item.color) h.color = item.color;
+                                                if (h.label || h.color) out.push(h);
+                                        }
+                                });
+                        } else if (typeof input === "string") {
+                                input.split(/[,;]+/).forEach(part => {
+                                        const label = part.trim();
+                                        if (label) out.push({ label });
+                                });
                         }
-                        return String(input || "").split(/[,;]+/).map(h => h.trim()).filter(h => h);
+                        return out;
                 }
 
                 let headers = parseHeaders(currentSettings.headers);
@@ -17,9 +31,10 @@
                 function ensureHeaderCount(count) {
                         if (headers.length >= count) return;
                         for (let i = headers.length; i < count; i++) {
-                                headers.push(`ch${i + 1}`);
+                                const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
+                                headers.push({ label: `ch${i + 1}`, color });
                         }
-                        currentSettings.headers = headers.map(label => ({ label }));
+                        currentSettings.headers = headers.map(h => ({ label: h.label, color: h.color }));
 
                         if (typeof freeboard?.getDatasourceSettings === "function" && typeof freeboard?.setDatasourceSettings === "function") {
                                 const live = freeboard.getLiveModel?.();
@@ -99,7 +114,10 @@
                                 const key = `y${idx + 1}`;
                                 data[key] = val;
                                 if (headers[idx]) {
-                                        headerMap[key] = headers[idx];
+                                        headerMap[key] = {
+                                                label: headers[idx].label,
+                                                color: headers[idx].color
+                                        };
                                 }
                         });
                         data.headers = headerMap;
@@ -165,9 +183,10 @@
                                 display_name: "Headers",
                                 type: "array",
                                 settings: [
-                                        { name: "label", display_name: "Label", type: "text" }
+                                        { name: "label", display_name: "Label", type: "text" },
+                                        { name: "color", display_name: "Color", type: "text" }
                                 ],
-                                description: "Labels for each value in the data array"
+                                description: "Labels and colors for each value in the data array"
                         },
                         {
                                 name: "refresh",
