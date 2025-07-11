@@ -17,7 +17,7 @@
 					"type": "owntech_plot_uplot",
 					"settings": {
 						"title": "test uplot",
-						"data": "[datasources[\"toto\"][\"y10\"],datasources[\"toto\"][\"y9\"]]",
+                                                "data": "{ y: [datasources[\"toto\"][\"y10\"], datasources[\"toto\"][\"y9\"]], headers: datasources[\"toto\"].headers }",
 						"duration": 20000,
 						"refreshRate": 10000,
 						"yLabel": "Value",

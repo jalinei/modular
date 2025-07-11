@@ -118,7 +118,7 @@
             }
         }
 
-        _resetPlot() {
+        _resetPlot(preserveData = false) {
             if (this.plot) {
                 this.plot.destroy();
                 this.plot = null;
@@ -136,8 +136,10 @@
                 series.push({ label, stroke: color });
             }
 
-            this.dataBuffer = [[], ...Array(this.seriesCount).fill().map(() => [])];
-            this.lastRender = 0;
+            if (!preserveData || !Array.isArray(this.dataBuffer) || this.dataBuffer.length !== this.seriesCount + 1) {
+                this.dataBuffer = [[], ...Array(this.seriesCount).fill().map(() => [])];
+                this.lastRender = 0;
+            }
             this._initPlot(series);
         }
 
@@ -182,7 +184,7 @@
                 const changed = JSON.stringify(headers) !== JSON.stringify(this.headers);
                 this.headers = headers;
                 if (changed && this.plot) {
-                    this._resetPlot();
+                    this._resetPlot(true);
                 }
             }
 

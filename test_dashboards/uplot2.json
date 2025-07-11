@@ -23,7 +23,7 @@
 					"type": "owntech_plot_uplot",
 					"settings": {
 						"title": "hello",
-						"data": "datasources[\"toto\"][\"y7\"]",
+                                                "data": "{ y: [datasources[\"toto\"][\"y7\"]], headers: datasources[\"toto\"].headers }",
 						"duration": 20000,
 						"refreshRate": 1000,
 						"yLabel": "Y1",
@@ -36,7 +36,7 @@
 					"type": "owntech_plot_uplot",
 					"settings": {
 						"title": "hello2",
-						"data": "datasources[\"toto\"][\"y9\"]",
+                                                "data": "{ y: [datasources[\"toto\"][\"y9\"]], headers: datasources[\"toto\"].headers }",
 						"duration": 20000,
 						"refreshRate": 3000,
 						"yLabel": "y2",
