@@ -4,6 +4,8 @@ const { SerialPort } = require('serialport');
 const fs = require('fs');
 const { flashFirmware, cancelFlash } = require('./flasher');
 
+let mainWindow; // reference to the main BrowserWindow
+
 // Path to mcumgr binary, assumes it is bundled alongside the app in a tools folder
 const mcumgrBinary = process.platform === 'win32' ? 'mcumgr.exe'
     : process.platform === 'darwin' ? 'mcumgr-mac' : 'mcumgr';
@@ -44,15 +46,18 @@ function parseLineCustom(line, sep) {
 }
 
 function createWindow() {
-	const win = new BrowserWindow({
-		width: 1280,
-		height: 800,
-		webPreferences: {
-			nodeIntegration: true,
-			contextIsolation: false
-		}
-	});
-	win.loadFile(path.join(__dirname, 'dashboard/index.html'));
+        mainWindow = new BrowserWindow({
+                width: 1280,
+                height: 800,
+                webPreferences: {
+                        nodeIntegration: true,
+                        contextIsolation: false
+                }
+        });
+        mainWindow.loadFile(path.join(__dirname, 'dashboard/index.html'));
+        mainWindow.on('closed', () => {
+                mainWindow = null;
+        });
 }
 
 app.whenReady().then(createWindow);
