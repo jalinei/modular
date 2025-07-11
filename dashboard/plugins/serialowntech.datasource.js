@@ -2,9 +2,10 @@
 	var serialDatasource = function (settings, updateCallback) {
 		var self = this;
 		var currentSettings = settings;
-		var timer;
-		const ipcRenderer = window.require?.("electron")?.ipcRenderer;
-		let latestData = [];
+                var timer;
+                const ipcRenderer = window.require?.("electron")?.ipcRenderer;
+                let latestData = [];
+                let headers = (currentSettings.headers || "").split(/[,;]+/).map(h => h.trim()).filter(h => h);
 
 		const eol = unescape(currentSettings.eol || "\\n");
 		const sep = currentSettings.separator || ":";
@@ -60,11 +61,17 @@
 				time_string_value: date.toLocaleTimeString(),
 				date_object: date
 			};
-			latestData.forEach((val, idx) => {
-				data[`y${idx + 1}`] = val;
-			});
-			updateCallback(data);
-		};
+                        const headerMap = {};
+                        latestData.forEach((val, idx) => {
+                                const key = `y${idx + 1}`;
+                                data[key] = val;
+                                if (headers[idx]) {
+                                        headerMap[key] = headers[idx];
+                                }
+                        });
+                        data.headers = headerMap;
+                        updateCallback(data);
+                };
 
 		this.onDispose = function () {
 			stopTimer();
@@ -79,11 +86,12 @@
 			}
 		};
 
-		this.onSettingsChanged = function (newSettings) {
-			currentSettings = newSettings;
-			updateTimer();
-			openPort();
-		};
+                this.onSettingsChanged = function (newSettings) {
+                        currentSettings = newSettings;
+                        headers = (currentSettings.headers || "").split(/[,;]+/).map(h => h.trim()).filter(h => h);
+                        updateTimer();
+                        openPort();
+                };
 
 		stopTimer();
 		updateTimer();
@@ -113,17 +121,23 @@
 				type: "text",
 				default_value: ":"
 			},
-			{
-				name: "eol",
-				display_name: "End of Line",
-				type: "text",
-				default_value: "\\r\\n"
-			},
-			{
-				name: "refresh",
-				display_name: "Refresh Every",
-				type: "number",
-				suffix: "ms",
+                        {
+                                name: "eol",
+                                display_name: "End of Line",
+                                type: "text",
+                                default_value: "\\r\\n"
+                        },
+                        {
+                                name: "headers",
+                                display_name: "Headers (comma-separated)",
+                                type: "text",
+                                description: "Labels for each value in the data array"
+                        },
+                        {
+                                name: "refresh",
+                                display_name: "Refresh Every",
+                                type: "number",
+                                suffix: "ms",
 				default_value: 1000
 			}
 		],
