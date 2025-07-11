@@ -31,6 +31,7 @@
             this.dataBuffer = [[], []]; // [timestamps, [series1, series2, ...]]
             this.maxPoints = 2000;
             this.lastRender = 0;
+            this.headers = {};
         }
 
         render(containerElement) {
@@ -125,8 +126,14 @@
 
             const series = [{ label: "Time" }];
             for (let i = 0; i < this.seriesCount; i++) {
-                const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
-                series.push({ label: `Channel ${i + 1}`, stroke: color });
+                const key = `y${i + 1}`;
+                let label = `Channel ${i + 1}`;
+                let color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
+                if (this.headers[key]) {
+                    if (this.headers[key].label) label = this.headers[key].label;
+                    if (this.headers[key].color) color = this.headers[key].color;
+                }
+                series.push({ label, stroke: color });
             }
 
             this.dataBuffer = [[], ...Array(this.seriesCount).fill().map(() => [])];
@@ -161,6 +168,22 @@
                 yValues = newValue;
             } else if (newValue && Array.isArray(newValue.y)) {
                 yValues = newValue.y;
+            }
+
+            if (newValue && typeof newValue.headers === 'object') {
+                const headers = {};
+                Object.keys(newValue.headers).forEach(key => {
+                    const h = newValue.headers[key] || {};
+                    const entry = {};
+                    if (typeof h.label === 'string') entry.label = h.label;
+                    if (typeof h.color === 'string') entry.color = h.color;
+                    if (Object.keys(entry).length) headers[key] = entry;
+                });
+                const changed = JSON.stringify(headers) !== JSON.stringify(this.headers);
+                this.headers = headers;
+                if (changed && this.plot) {
+                    this._resetPlot();
+                }
             }
 
             if (!yValues.length) return;
