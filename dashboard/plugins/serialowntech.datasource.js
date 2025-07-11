@@ -75,13 +75,18 @@
 			};
                         const names = [];
                         const colors = [];
-                        latestData.forEach((val, idx) => {
-                                data[`y${idx + 1}`] = val;
-                                const cfg = Array.isArray(currentSettings.channels) ? currentSettings.channels[idx] || {} : {};
-                                names.push(cfg.name || `ch${idx + 1}`);
-                                const clr = cfg.color && cfg.color.trim() ? cfg.color : palette[idx % palette.length];
+                        const cfgCount = Array.isArray(currentSettings.channels) ? currentSettings.channels.length : 0;
+                        const count = Math.max(latestData.length, cfgCount);
+                        for (let i = 0; i < count; i++) {
+                                const val = latestData[i];
+                                if (val !== undefined) {
+                                        data[`y${i + 1}`] = val;
+                                }
+                                const cfg = Array.isArray(currentSettings.channels) ? currentSettings.channels[i] || {} : {};
+                                names.push(cfg.name || `ch${i + 1}`);
+                                const clr = cfg.color && cfg.color.trim() ? cfg.color : palette[i % palette.length];
                                 colors.push(clr);
-                        });
+                        }
                         data.channelNames = names;
                         data.channelColors = colors;
                         updateCallback(data);

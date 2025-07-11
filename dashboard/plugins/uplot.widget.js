@@ -230,7 +230,7 @@
             }
             let namesChanged = false;
             let colorsChanged = false;
-            if (newValue && Array.isArray(newValue.channelNames)) {
+            if (newValue && Array.isArray(newValue.channelNames) && newValue.channelNames.length) {
                 namesChanged = JSON.stringify(newValue.channelNames) !== JSON.stringify(this.channelNames);
                 this.channelNames = newValue.channelNames;
             } else if (this.seriesMeta.length) {
@@ -238,7 +238,7 @@
                 this._updateMetaFromDatasource();
                 namesChanged = before !== JSON.stringify(this.channelNames);
             }
-            if (newValue && Array.isArray(newValue.channelColors)) {
+            if (newValue && Array.isArray(newValue.channelColors) && newValue.channelColors.length) {
                 colorsChanged = JSON.stringify(newValue.channelColors) !== JSON.stringify(this.channelColors);
                 this.channelColors = newValue.channelColors;
             } else if (this.seriesMeta.length) {
