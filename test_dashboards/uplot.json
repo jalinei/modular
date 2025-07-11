@@ -30,17 +30,21 @@
 		}
 	],
 	"datasources": [
-		{
-			"name": "toto",
-			"type": "serialport_datasource",
-			"settings": {
-				"portPath": "/dev/ttyACM0",
-				"baudRate": 115200,
-				"separator": ":",
-				"eol": "\\r\\n",
-				"refresh": 1000
-			}
-		}
-	],
-	"columns": 3
+                {
+                        "name": "toto",
+                        "type": "serialport_datasource",
+                        "settings": {
+                                "portPath": "/dev/ttyACM0",
+                                "baudRate": 115200,
+                                "separator": ":",
+                                "eol": "\\r\\n",
+                                "refresh": 1000,
+                                "headers": [
+                                        { "label": "Chan10", "color": "#ff0000" },
+                                        { "label": "Chan9", "color": "#00ff00" }
+                                ]
+                        }
+                }
+        ],
+        "columns": 3
 }
