@@ -22,6 +22,20 @@
         }
     });
 
+    const COLOR_PALETTES = {
+        default: [
+            "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
+            "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe"
+        ],
+        pastel: [
+            "#ffb3ba", "#ffdfba", "#ffffba", "#baffc9", "#bae1ff"
+        ],
+        dark: [
+            "#800000", "#9a6324", "#808000", "#469990", "#000075",
+            "#e6194b", "#911eb4", "#a9a9a9", "#fffac8", "#aaffc3"
+        ]
+    };
+
     class OwnTechPlotUPlot {
         constructor(settings) {
             this.settings = settings;
@@ -57,14 +71,16 @@
                 if (!cache[meta.ds]) {
                     cache[meta.ds] = freeboard.getDatasourceSettings(meta.ds) || {};
                 }
-                const cfgs = cache[meta.ds].channels;
+                const dsCfg = cache[meta.ds];
+                const cfgs = dsCfg.channels;
+                const paletteName = dsCfg.palette;
+                const palette = COLOR_PALETTES[paletteName] || COLOR_PALETTES.default;
                 const cfg = Array.isArray(cfgs) ? cfgs[meta.idx - 1] || {} : {};
                 this.channelNames.push(cfg.name || `ch${meta.idx}`);
-                if (cfg.color) {
-                    this.channelColors.push(cfg.color);
-                } else {
-                    this.channelColors.push(undefined);
-                }
+                const color = cfg.color && cfg.color.trim()
+                    ? cfg.color
+                    : palette[(meta.idx - 1) % palette.length];
+                this.channelColors.push(color);
             });
         }
 

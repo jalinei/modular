@@ -165,7 +165,12 @@
                                 type: "array",
                                 settings: [
                                         { name: "name", display_name: "Name", type: "text" },
-                                        { name: "color", display_name: "Color", type: "text" }
+                                        {
+                                                name: "color",
+                                                display_name: "Color",
+                                                type: "text",
+                                                description: "Any CSS color value (e.g. '#ff0000' or 'hsl(120,100%,50%)')"
+                                        }
                                 ]
                         }
                 ],
