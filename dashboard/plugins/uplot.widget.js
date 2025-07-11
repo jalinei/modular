@@ -31,6 +31,8 @@
             this.dataBuffer = [[], []]; // [timestamps, [series1, series2, ...]]
             this.maxPoints = 2000;
             this.lastRender = 0;
+            this.channelNames = [];
+            this.channelColors = [];
         }
 
         render(containerElement) {
@@ -42,8 +44,9 @@
             const resolvedSeries = series || [{ label: "Time" }];
             if (!series) {
                 for (let i = 0; i < this.seriesCount; i++) {
-                    const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
-                    resolvedSeries.push({ label: `Channel ${i + 1}`, stroke: color });
+                    const color = this.channelColors[i] || `hsl(${(i * 60) % 360}, 70%, 50%)`;
+                    const label = this.channelNames[i] || `Channel ${i + 1}`;
+                    resolvedSeries.push({ label, stroke: color });
                 }
             }
 
@@ -125,8 +128,9 @@
 
             const series = [{ label: "Time" }];
             for (let i = 0; i < this.seriesCount; i++) {
-                const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
-                series.push({ label: `Channel ${i + 1}`, stroke: color });
+                const color = this.channelColors[i] || `hsl(${(i * 60) % 360}, 70%, 50%)`;
+                const label = this.channelNames[i] || `Channel ${i + 1}`;
+                series.push({ label, stroke: color });
             }
 
             this.dataBuffer = [[], ...Array(this.seriesCount).fill().map(() => [])];
@@ -161,6 +165,19 @@
                 yValues = newValue;
             } else if (newValue && Array.isArray(newValue.y)) {
                 yValues = newValue.y;
+            } else if (newValue && typeof newValue === 'object') {
+                const keys = Object.keys(newValue)
+                    .filter(k => /^y\d+$/.test(k))
+                    .sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
+                if (keys.length) {
+                    yValues = keys.map(k => newValue[k]);
+                }
+            }
+            if (newValue && Array.isArray(newValue.channelNames)) {
+                this.channelNames = newValue.channelNames;
+            }
+            if (newValue && Array.isArray(newValue.channelColors)) {
+                this.channelColors = newValue.channelColors;
             }
 
             if (!yValues.length) return;

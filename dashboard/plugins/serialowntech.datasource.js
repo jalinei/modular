@@ -1,13 +1,26 @@
 (function () {
-	var serialDatasource = function (settings, updateCallback) {
-		var self = this;
-		var currentSettings = settings;
-		var timer;
-		const ipcRenderer = window.require?.("electron")?.ipcRenderer;
-		let latestData = [];
+        const COLOR_PALETTES = {
+                default: [
+                        "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
+                        "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe"
+                ],
+                pastel: [
+                        "#ffb3ba", "#ffdfba", "#ffffba", "#baffc9", "#bae1ff"
+                ],
+                dark: [
+                        "#800000", "#9a6324", "#808000", "#469990", "#000075",
+                        "#e6194b", "#911eb4", "#a9a9a9", "#fffac8", "#aaffc3"
+                ]
+        };
 
-		const eol = unescape(currentSettings.eol || "\\n");
-		const sep = currentSettings.separator || ":";
+        var serialDatasource = function (settings, updateCallback) {
+                var self = this;
+                var currentSettings = settings;
+                var timer;
+                const ipcRenderer = window.require?.("electron")?.ipcRenderer;
+                let latestData = [];
+
+                let palette = COLOR_PALETTES[currentSettings.palette] || COLOR_PALETTES.default;
 
 		async function openPort() {
 			if (!ipcRenderer) return;
@@ -60,11 +73,19 @@
 				time_string_value: date.toLocaleTimeString(),
 				date_object: date
 			};
-			latestData.forEach((val, idx) => {
-				data[`y${idx + 1}`] = val;
-			});
-			updateCallback(data);
-		};
+                        const names = [];
+                        const colors = [];
+                        latestData.forEach((val, idx) => {
+                                data[`y${idx + 1}`] = val;
+                                const cfg = Array.isArray(currentSettings.channels) ? currentSettings.channels[idx] || {} : {};
+                                names.push(cfg.name || `ch${idx + 1}`);
+                                const clr = cfg.color && cfg.color.trim() ? cfg.color : palette[idx % palette.length];
+                                colors.push(clr);
+                        });
+                        data.channelNames = names;
+                        data.channelColors = colors;
+                        updateCallback(data);
+                };
 
 		this.onDispose = function () {
 			stopTimer();
@@ -79,11 +100,12 @@
 			}
 		};
 
-		this.onSettingsChanged = function (newSettings) {
-			currentSettings = newSettings;
-			updateTimer();
-			openPort();
-		};
+                this.onSettingsChanged = function (newSettings) {
+                        currentSettings = newSettings;
+                        palette = COLOR_PALETTES[currentSettings.palette] || COLOR_PALETTES.default;
+                        updateTimer();
+                        openPort();
+                };
 
 		stopTimer();
 		updateTimer();
@@ -119,14 +141,34 @@
 				type: "text",
 				default_value: "\\r\\n"
 			},
-			{
-				name: "refresh",
-				display_name: "Refresh Every",
-				type: "number",
-				suffix: "ms",
-				default_value: 1000
-			}
-		],
+                        {
+                                name: "refresh",
+                                display_name: "Refresh Every",
+                                type: "number",
+                                suffix: "ms",
+                                default_value: 1000
+                        },
+                        {
+                                name: "palette",
+                                display_name: "Color Palette",
+                                type: "option",
+                                options: [
+                                        { name: "Default", value: "default" },
+                                        { name: "Pastel", value: "pastel" },
+                                        { name: "Dark", value: "dark" }
+                                ],
+                                default_value: "default"
+                        },
+                        {
+                                name: "channels",
+                                display_name: "Channels",
+                                type: "array",
+                                settings: [
+                                        { name: "name", display_name: "Name", type: "text" },
+                                        { name: "color", display_name: "Color", type: "text" }
+                                ]
+                        }
+                ],
 		newInstance: function (settings, newInstanceCallback, updateCallback) {
 			newInstanceCallback(new serialDatasource(settings, updateCallback));
 		}
