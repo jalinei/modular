@@ -50,21 +50,14 @@
 			}, interval);
 		}
 
-		this.updateNow = async function () {
-			const date = new Date();
-			await pollData();
-			const data = {
-				numeric_value: date.getTime(),
-				full_string_value: date.toLocaleString(),
-				date_string_value: date.toLocaleDateString(),
-				time_string_value: date.toLocaleTimeString(),
-				date_object: date
-			};
-			latestData.forEach((val, idx) => {
-				data[`y${idx + 1}`] = val;
-			});
-			updateCallback(data);
-		};
+                this.updateNow = async function () {
+                        const date = Date.now();
+                        await pollData();
+                        updateCallback({
+                                timestamp: date,
+                                data: latestData
+                        });
+                };
 
 		this.onDispose = function () {
 			stopTimer();
