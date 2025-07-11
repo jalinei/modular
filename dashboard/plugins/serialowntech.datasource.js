@@ -5,7 +5,38 @@
                 var timer;
                 const ipcRenderer = window.require?.("electron")?.ipcRenderer;
                 let latestData = [];
-                let headers = (currentSettings.headers || "").split(/[,;]+/).map(h => h.trim()).filter(h => h);
+                function parseHeaders(input) {
+                        if (Array.isArray(input)) {
+                                return input.map(obj => typeof obj === "string" ? obj : obj.label).filter(Boolean);
+                        }
+                        return String(input || "").split(/[,;]+/).map(h => h.trim()).filter(h => h);
+                }
+
+                let headers = parseHeaders(currentSettings.headers);
+
+                function ensureHeaderCount(count) {
+                        if (headers.length >= count) return;
+                        for (let i = headers.length; i < count; i++) {
+                                headers.push(`ch${i + 1}`);
+                        }
+                        currentSettings.headers = headers.map(label => ({ label }));
+
+                        if (typeof freeboard?.getDatasourceSettings === "function" && typeof freeboard?.setDatasourceSettings === "function") {
+                                const live = freeboard.getLiveModel?.();
+                                const list = live?.datasources?.();
+                                if (Array.isArray(list)) {
+                                        for (const ds of list) {
+                                                try {
+                                                        if (ds.settings().portPath === currentSettings.portPath && ds.type() === "serialport_datasource") {
+                                                                const name = ds.name();
+                                                                freeboard.setDatasourceSettings(name, { headers: currentSettings.headers });
+                                                                break;
+                                                        }
+                                                } catch (e) { /* ignore */ }
+                                        }
+                                }
+                        }
+                }
 
 		const eol = unescape(currentSettings.eol || "\\n");
 		const sep = currentSettings.separator || ":";
@@ -24,16 +55,17 @@
 			}
 		}
 
-		async function pollData() {
-			try {
-				const data = await ipcRenderer.invoke("get-serial-buffer");
-				if (Array.isArray(data)) {
-					latestData = data;
-				}
-			} catch (err) {
-				console.error("Failed to poll serial data:", err);
-			}
-		}
+                async function pollData() {
+                        try {
+                                const data = await ipcRenderer.invoke("get-serial-buffer");
+                                if (Array.isArray(data)) {
+                                        latestData = data;
+                                        ensureHeaderCount(latestData.length);
+                                }
+                        } catch (err) {
+                                console.error("Failed to poll serial data:", err);
+                        }
+                }
 
 		function stopTimer() {
 			if (timer) {
@@ -53,7 +85,8 @@
 
 		this.updateNow = async function () {
 			const date = new Date();
-			await pollData();
+                        await pollData();
+                        ensureHeaderCount(latestData.length);
 			const data = {
 				numeric_value: date.getTime(),
 				full_string_value: date.toLocaleString(),
@@ -88,7 +121,7 @@
 
                 this.onSettingsChanged = function (newSettings) {
                         currentSettings = newSettings;
-                        headers = (currentSettings.headers || "").split(/[,;]+/).map(h => h.trim()).filter(h => h);
+                        headers = parseHeaders(currentSettings.headers);
                         updateTimer();
                         openPort();
                 };
@@ -129,8 +162,11 @@
                         },
                         {
                                 name: "headers",
-                                display_name: "Headers (comma-separated)",
-                                type: "text",
+                                display_name: "Headers",
+                                type: "array",
+                                settings: [
+                                        { name: "label", display_name: "Label", type: "text" }
+                                ],
                                 description: "Labels for each value in the data array"
                         },
                         {

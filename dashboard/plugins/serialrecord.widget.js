@@ -161,7 +161,12 @@
             } else {
                 const dsSettings = freeboard.getDatasourceSettings(this.settings.datasource) || {};
                 this.portPath = dsSettings.portPath || this.settings.datasource;
-                const headers = (dsSettings.headers || '').split(/[,;]+/).map(h => h.trim()).filter(h => h);
+                let headers = [];
+                if (Array.isArray(dsSettings.headers)) {
+                    headers = dsSettings.headers.map(obj => obj.label).filter(Boolean);
+                } else if (typeof dsSettings.headers === 'string') {
+                    headers = dsSettings.headers.split(/[,;]+/).map(h => h.trim()).filter(h => h);
+                }
                 await this.ipc.invoke('start-csv-record', {
                     path: this.portPath,
                     filePath: this.settings.filePath,
