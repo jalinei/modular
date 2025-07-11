@@ -282,7 +282,17 @@ ipcMain.handle('choose-firmware-file', async () => {
 });
 
 // 🔥 Flash firmware to a board over serial
-ipcMain.handle('start-flash', (event, { comPort, firmwarePath, mcumgrPath: userPath }) => {
+ipcMain.handle('start-flash', async (event, { comPort, firmwarePath, mcumgrPath: userPath }) => {
+    const existing = openPorts.get(comPort);
+    if (existing && existing.isOpen) {
+        await new Promise(res => existing.close(err => {
+            if (err) {
+                console.error('Error closing port before flash:', err.message);
+            }
+            res();
+        }));
+    }
+
     return new Promise(resolve => {
         flashFirmware(
             { comPort, firmwarePath, mcumgrPath: userPath || mcumgrPath },
