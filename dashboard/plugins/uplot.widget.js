@@ -247,7 +247,12 @@
                 colorsChanged = before !== JSON.stringify(this.channelColors);
             }
 
-            if (!yValues.length) return;
+            if (!yValues.length) {
+                if ((namesChanged || colorsChanged) && this.plot) {
+                    this._resetPlot();
+                }
+                return;
+            }
 
             if (!this.plot || this.seriesCount !== yValues.length || namesChanged || colorsChanged) {
                 this.seriesCount = yValues.length;

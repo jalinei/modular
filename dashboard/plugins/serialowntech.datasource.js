@@ -100,12 +100,14 @@
 			}
 		};
 
-                this.onSettingsChanged = function (newSettings) {
+               this.onSettingsChanged = function (newSettings) {
                         currentSettings = newSettings;
                         palette = COLOR_PALETTES[currentSettings.palette] || COLOR_PALETTES.default;
                         updateTimer();
                         openPort();
-                };
+                        // push metadata immediately so widgets refresh even before new data arrives
+                        self.updateNow();
+               };
 
 		stopTimer();
 		updateTimer();
