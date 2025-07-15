@@ -14,7 +14,7 @@ const mcumgrPath = path.join(__dirname, 'tools', mcumgrBinary);
 const activeRecordings = new Map(); // Active CSV recordings mapped by port path
 const openPorts = new Map(); // key: path, value: SerialPort instance
 const terminalBuffers = new Map(); // key: path, value: array of raw lines
-let serialBuffer = [];
+const serialBuffers = new Map(); // key: path, value: array of parsed data arrays
 const MAX_BUFFER_SIZE = 1000;
 const MAX_TERMINAL_LINES = 200;
 
@@ -25,12 +25,17 @@ let currentSettings = {
 	eol: "\n"
 };
 
-function addToBuffer(parsedData) {
-	if (!Array.isArray(parsedData)) return;
-	serialBuffer.push(parsedData);
-	if (serialBuffer.length > MAX_BUFFER_SIZE) {
-		serialBuffer.shift();
-	}
+function addToBuffer(portPath, parsedData) {
+        if (!Array.isArray(parsedData)) return;
+        let buf = serialBuffers.get(portPath);
+        if (!buf) {
+                buf = [];
+                serialBuffers.set(portPath, buf);
+        }
+        buf.push(parsedData);
+        if (buf.length > MAX_BUFFER_SIZE) {
+                buf.shift();
+        }
 }
 
 function parseLine(line) {
@@ -97,7 +102,8 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
 
 	let rawBuffer = "";
 
-	terminalBuffers.set(path, []);
+        terminalBuffers.set(path, []);
+        serialBuffers.set(path, []);
 
 	port.on("data", chunk => {
 			rawBuffer += chunk.toString();
@@ -105,8 +111,8 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
 			rawBuffer = lines.pop(); // keep the last (possibly incomplete) line
 			const termBuf = terminalBuffers.get(path) || [];
 			for (const line of lines) {
-					const parsed = parseLine(line);
-					if (parsed.length) addToBuffer(parsed);
+                                        const parsed = parseLine(line);
+                                        if (parsed.length) addToBuffer(path, parsed);
 					termBuf.push(line);
 					if (termBuf.length > MAX_TERMINAL_LINES) termBuf.shift();
 			}
@@ -117,18 +123,20 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
 		console.error("Serial port error:", err.message);
 	});
 
-	port.on("close", () => {
-			console.log(`🔌 Serial port ${path} closed.`);
-			openPorts.delete(path);
-			terminalBuffers.delete(path);
-	});
+        port.on("close", () => {
+                        console.log(`🔌 Serial port ${path} closed.`);
+                        openPorts.delete(path);
+                        terminalBuffers.delete(path);
+                        serialBuffers.delete(path);
+        });
 
 	openPorts.set(path, port);
 });
 
 // 📥 Renderer pulls latest parsed data
-ipcMain.handle("get-serial-buffer", () => {
-        return serialBuffer.length > 0 ? serialBuffer[serialBuffer.length - 1] : [];
+ipcMain.handle("get-serial-buffer", (event, { path }) => {
+        const buf = serialBuffers.get(path) || [];
+        return buf.length > 0 ? buf[buf.length - 1] : [];
 });
 
 // 📄 Get terminal lines for a port

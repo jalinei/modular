@@ -72,7 +72,7 @@
 
                 async function pollData() {
                         try {
-                                const data = await ipcRenderer.invoke("get-serial-buffer");
+                                const data = await ipcRenderer.invoke("get-serial-buffer", { path: currentSettings.portPath });
                                 if (Array.isArray(data)) {
                                         latestData = data;
                                         ensureHeaderCount(latestData.length);
