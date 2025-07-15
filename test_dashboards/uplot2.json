@@ -96,6 +96,7 @@
 					"type": "serial_command_buttons",
 					"settings": {
 						"layout": "vertical",
+                                                "datasource": "toto",
 						"buttons": [
 							{
 								"label": "Power",
