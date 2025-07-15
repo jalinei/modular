@@ -140,11 +140,16 @@
                 key => newSettings[key] !== this.settings[key]
             );
             const rateChanged = newSettings.refreshRate !== this.settings.refreshRate;
+            const titleChanged = newSettings.title !== this.settings.title;
 
             this.settings = newSettings;
 
             if (needsReset && this.plot) {
                 this._resetPlot();
+            }
+            if (titleChanged && this.plot) {
+                const tEl = this.plot.root.querySelector('.u-title');
+                if (tEl) tEl.textContent = this.settings.title || '';
             }
             if (rateChanged) {
                 this.lastRender = 0;
