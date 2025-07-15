@@ -1,9 +1,10 @@
 (function () {
-	var serialDatasource = function (settings, updateCallback) {
-		var self = this;
-		var currentSettings = settings;
+        const ipcRenderer = window.require?.("electron")?.ipcRenderer;
+        var serialDatasource = function (settings, updateCallback) {
+                var self = this;
+                var currentSettings = settings;
                 var timer;
-                const ipcRenderer = window.require?.("electron")?.ipcRenderer;
+                // ipcRenderer is defined above
                 let latestData = [];
                 function parseHeaders(input) {
                         const out = [];
@@ -149,17 +150,29 @@
 		openPort();
 	};
 
-	freeboard.loadDatasourcePlugin({
-		type_name: "serialport_datasource",
-		display_name: "Serial Port Reader",
-		description: "Reads data from a serial port",
-		settings: [
-			{
-				name: "portPath",
-				display_name: "Port Path",
-				type: "text",
-				default_value: "/dev/ttyACM0"
-			},
+        async function registerPlugin() {
+                let portOptions = [];
+                if (ipcRenderer) {
+                        try {
+                                const ports = await ipcRenderer.invoke('get-serial-ports');
+                                portOptions = ports.map(p => ({ name: p.name, value: p.value }));
+                        } catch (e) {
+                                console.error('Failed to list serial ports', e);
+                        }
+                }
+
+                freeboard.loadDatasourcePlugin({
+                        type_name: "serialport_datasource",
+                        display_name: "Serial Port Reader",
+                        description: "Reads data from a serial port",
+                        settings: [
+                                {
+                                        name: "portPath",
+                                        display_name: "Port",
+                                        type: "option",
+                                        options: portOptions,
+                                        default_value: portOptions.length ? portOptions[0].value : ""
+                                },
 			{
 				name: "baudRate",
 				display_name: "Baud Rate",
@@ -196,8 +209,11 @@
 				default_value: 1000
 			}
 		],
-		newInstance: function (settings, newInstanceCallback, updateCallback) {
-			newInstanceCallback(new serialDatasource(settings, updateCallback));
-		}
-	});
+                newInstance: function (settings, newInstanceCallback, updateCallback) {
+                        newInstanceCallback(new serialDatasource(settings, updateCallback));
+                }
+        });
+        }
+
+        registerPlugin();
 }());
