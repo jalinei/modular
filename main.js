@@ -316,3 +316,16 @@ ipcMain.handle('start-flash', async (event, { comPort, firmwarePath, mcumgrPath:
 ipcMain.on('cancel-flash', () => {
     cancelFlash();
 });
+
+// 🧹 Flush buffers for a serial port
+ipcMain.handle('flush-serial-buffers', async (_event, { path }) => {
+    terminalBuffers.set(path, []);
+    serialBuffers.set(path, []);
+    return 'flushed';
+});
+
+// ❓ Check if a serial port is open
+ipcMain.handle('is-serial-port-open', async (_event, { path }) => {
+    const port = openPorts.get(path);
+    return port ? port.isOpen : false;
+});
