@@ -65,10 +65,21 @@
             this.settings = settings;
             this.ipc = window.require?.("electron")?.ipcRenderer;
             this.isRecording = false;
-            this.container = $('<div style="height:100%; display:flex; flex-direction:column; gap:4px;"></div>');
+            const id = 'serialrec_' + Math.random().toString(36).substr(2,5);
+            this.card = $(
+                `<div class="card h-100">
+                    <div class="card-header p-1">
+                        <a data-bs-toggle="collapse" href="#${id}" role="button" class="text-body fw-bold d-block">CSV Recorder</a>
+                    </div>
+                    <div id="${id}" class="collapse show">
+                        <div class="card-body d-flex flex-column gap-2"></div>
+                    </div>
+                </div>`
+            );
+            this.container = this.card.find('.card-body');
 
             // Dropdown of available serial datasources
-            this.dsSelect = $('<select style="flex:1; box-sizing:border-box;"></select>');
+            this.dsSelect = $('<select class="form-select form-select-sm flex-grow-1"></select>');
             this._refreshDatasourceOptions();
             this.dsSelect.on('change', () => {
                 this.settings.datasource = this.dsSelect.val();
@@ -78,23 +89,23 @@
             freeboard.on && freeboard.on('config_updated', this._configHandler);
 
             const makeRow = (labelText, inputEl) => {
-                const row = $('<div style="display:flex; align-items:center; gap:4px;"></div>');
-                const label = $(`<label style="flex:1;">${labelText}</label>`);
+                const row = $('<div class="d-flex align-items-center gap-2"></div>');
+                const label = $(`<label class="flex-grow-1">${labelText}</label>`);
                 row.append(label).append(inputEl);
                 return row;
             };
 
-            this.orderSelect = $('<select style="flex:1; box-sizing:border-box;"></select>');
+            this.orderSelect = $('<select class="form-select form-select-sm flex-grow-1"></select>');
             this.orderSelect.append('<option value="old">Old data on top</option>');
             this.orderSelect.append('<option value="new">Early data on top</option>');
 
             this.headerCheck = $('<input type="checkbox">');
-            this.timeSelect = $('<select style="flex:1; box-sizing:border-box;"></select>');
+            this.timeSelect = $('<select class="form-select form-select-sm flex-grow-1"></select>');
             this.timeSelect.append('<option value="none">None</option>');
             this.timeSelect.append('<option value="relative">Relative</option>');
             this.timeSelect.append('<option value="absolute">Absolute</option>');
 
-            this.button = $('<button class="serial-rec-btn" style="width:100%; box-sizing:border-box; height:32px;"></button>').text('Start Record');
+            this.button = $('<button class="btn btn-primary w-100"></button>').text('Start Record');
             this.portPath = null;
 
             this.container.append(
@@ -108,7 +119,7 @@
 
         render(containerElement) {
             this._syncControls();
-            $(containerElement).append(this.container);
+            $(containerElement).append(this.card);
             this.button.on('click', () => this._toggleRecord());
 
             this.orderSelect.on('change', () => {

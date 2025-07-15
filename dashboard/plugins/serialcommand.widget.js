@@ -32,12 +32,23 @@
     class SerialCommandButtons {
         constructor(settings) {
             this.settings = settings;
-            this.container = $('<div class="serial-command-buttons"></div>');
+            const id = 'serialcmd_' + Math.random().toString(36).substr(2,5);
+            this.card = $(
+                `<div class="card h-100">
+                    <div class="card-header p-1">
+                        <a data-bs-toggle="collapse" href="#${id}" role="button" class="text-body fw-bold d-block">Serial Commands</a>
+                    </div>
+                    <div id="${id}" class="collapse show">
+                        <div class="card-body p-2"></div>
+                    </div>
+                </div>`
+            );
+            this.container = this.card.find('.card-body');
             this.ipcRenderer = window.require?.("electron")?.ipcRenderer;
         }
 
         render(containerElement) {
-            $(containerElement).append(this.container);
+            $(containerElement).append(this.card);
             this._renderButtons();
         }
 
@@ -46,16 +57,10 @@
             const layout = this.settings.layout || "vertical";
             const buttons = this.settings.buttons || [];
             buttons.forEach(cfg => {
-                const btn = $('<button></button>')
-                    .text(cfg.label || cfg.command)
-                    .css({
-                        margin: "2px",
-                        display: layout === "horizontal" ? "inline-block" : "block",
-                        width: layout === "horizontal" ? "80px" : "100%",
-                        height: "32px",
-                        boxSizing: "border-box"
-                    });
-                    btn.on('click', () => this._sendCommand(cfg.command));
+                const btn = $(
+                    `<button class="btn btn-primary btn-sm${layout === 'horizontal' ? ' me-1' : ' mb-1 w-100'}">${cfg.label || cfg.command}</button>`
+                );
+                btn.on('click', () => this._sendCommand(cfg.command));
                 this.container.append(btn);
             });
         }

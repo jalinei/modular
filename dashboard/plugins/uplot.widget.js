@@ -25,7 +25,18 @@
     class OwnTechPlotUPlot {
         constructor(settings) {
             this.settings = settings;
-            this.container = $('<div style="width:100%; height:100%; overflow:hidden;"></div>');
+            const id = 'uplot_' + Math.random().toString(36).substr(2,5);
+            this.card = $(
+                `<div class="card h-100">
+                    <div class="card-header p-1">
+                        <a data-bs-toggle="collapse" href="#${id}" role="button" class="text-body fw-bold d-block">${this.settings.title || 'Plot'}</a>
+                    </div>
+                    <div id="${id}" class="collapse show">
+                        <div class="card-body p-0" style="width:100%; height:100%; overflow:hidden;"></div>
+                    </div>
+                </div>`
+            );
+            this.container = this.card.find('.card-body');
             this.plot = null;
             this.seriesCount = 0;
             this.dataBuffer = [[], []]; // [timestamps, [series1, series2, ...]]
@@ -34,7 +45,7 @@
         }
 
         render(containerElement) {
-            this.container.appendTo(containerElement);
+            $(containerElement).append(this.card);
             this._initPlot();
         }
 
@@ -142,6 +153,9 @@
             const rateChanged = newSettings.refreshRate !== this.settings.refreshRate;
 
             this.settings = newSettings;
+
+            const header = this.card.find('.card-header a');
+            header.text(this.settings.title || 'Plot');
 
             if (needsReset && this.plot) {
                 this._resetPlot();

@@ -92,11 +92,22 @@
         constructor(settings) {
             this.settings = settings;
             this.chart = null;
-            this.container = $("<div class='owntech-plot' style='height:100%; width:100%; overflow-y: auto;'></div>");
+            const id = 'chartown_' + Math.random().toString(36).substr(2,5);
+            this.card = $(
+                `<div class="card h-100">
+                    <div class="card-header p-1">
+                        <a data-bs-toggle="collapse" href="#${id}" role="button" class="text-body fw-bold d-block">${this.settings.title || 'Plot'}</a>
+                    </div>
+                    <div id="${id}" class="collapse show">
+                        <div class="card-body p-0" style="height:100%; width:100%; overflow-y:auto;"></div>
+                    </div>
+                </div>`
+            );
+            this.container = this.card.find('.card-body');
         }
 
         render(containerElement) {
-            this.container.appendTo(containerElement);
+            $(containerElement).append(this.card);
 
             const canvas = $("<canvas></canvas>").css({ height: "300px", width: "100%" }).appendTo(this.container)[0];
             const ctx = canvas.getContext('2d');
@@ -248,6 +259,8 @@
 
         onSettingsChanged(newSettings) {
             this.settings = newSettings;
+            const header = this.card.find('.card-header a');
+            header.text(this.settings.title || 'Plot');
             if (this.chart && this.chart.options.plugins.title) {
                 this.chart.options.plugins.title.text = newSettings.title || '';
                 this.chart.options.plugins.title.display = !!newSettings.title;

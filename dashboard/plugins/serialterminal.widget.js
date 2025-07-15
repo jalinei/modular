@@ -17,13 +17,24 @@
     class SerialTerminal {
         constructor(settings) {
             this.settings = settings;
-            this.container = $('<pre class="serial-terminal" style="overflow:auto; height:100%;"></pre>');
+            const id = 'serialterm_' + Math.random().toString(36).substr(2,5);
+            this.card = $(
+                `<div class="card h-100">
+                    <div class="card-header p-1">
+                        <a data-bs-toggle="collapse" href="#${id}" role="button" class="text-body fw-bold d-block">${this.settings.title || 'Serial Terminal'}</a>
+                    </div>
+                    <div id="${id}" class="collapse show">
+                        <div class="card-body p-1" style="overflow:auto; height:100%;"></div>
+                    </div>
+                </div>`
+            );
+            this.container = this.card.find('.card-body');
             this.ipcRenderer = window.require?.("electron")?.ipcRenderer;
             this.timer = null;
         }
 
         render(containerElement) {
-            $(containerElement).append(this.container);
+            $(containerElement).append(this.card);
             this._updateTimer();
         }
 
@@ -60,8 +71,10 @@
             this.timer = setInterval(() => this._poll(), interval);
         }
 
-        onSettingsChanged(newSettings) {
+       onSettingsChanged(newSettings) {
             this.settings = newSettings;
+            const header = this.card.find('.card-header a');
+            header.text(this.settings.title || 'Serial Terminal');
             this._updateTimer();
         }
 

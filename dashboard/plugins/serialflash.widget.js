@@ -16,16 +16,27 @@
             this.settings = settings;
             this.ipc = window.require?.('electron')?.ipcRenderer;
             this.path = window.require?.('path');
-            this.container = $('<div style="display:flex; flex-direction:column; height:100%; gap:4px;"></div>');
-            this.portSelect = $('<select style="width:100%; box-sizing:border-box;"></select>');
-            this.refreshBtn = $('<button>Refresh Ports</button>');
-            this.fileLabel = $('<span>No file selected</span>');
-            this.fileBtn = $('<button>Select Firmware</button>');
+            const id = 'serialflasher_' + Math.random().toString(36).substr(2,5);
+            this.card = $(
+                `<div class="card h-100">
+                    <div class="card-header p-1">
+                        <a data-bs-toggle="collapse" href="#${id}" role="button" class="text-body fw-bold d-block">${this.settings.title || 'Firmware Flasher'}</a>
+                    </div>
+                    <div id="${id}" class="collapse show">
+                        <div class="card-body d-flex flex-column gap-2"></div>
+                    </div>
+                </div>`
+            );
+            this.container = this.card.find('.card-body');
+            this.portSelect = $('<select class="form-select form-select-sm"></select>');
+            this.refreshBtn = $('<button class="btn btn-secondary btn-sm">Refresh Ports</button>');
+            this.fileLabel = $('<span class="align-self-center">No file selected</span>');
+            this.fileBtn = $('<button class="btn btn-secondary btn-sm">Select Firmware</button>');
             this.selectedFilePath = null;
-            this.startBtn = $('<button>Flash Firmware</button>');
-            this.cancelBtn = $('<button style="display:none;">Cancel</button>');
+            this.startBtn = $('<button class="btn btn-primary">Flash Firmware</button>');
+            this.cancelBtn = $('<button class="btn btn-warning btn-sm" style="display:none;">Cancel</button>');
             this.progressWrapper = $('<div class="progress" style="height:20px; display:none;"><div class="progress-bar" style="width:0%"></div></div>');
-            this.logArea = $('<textarea readonly style="flex:1; width:100%; display:none; box-sizing:border-box;"></textarea>');
+            this.logArea = $('<textarea readonly class="form-control mt-2" style="flex:1; display:none;"></textarea>');
             this._progressListener = (_e, m) => this._onProgress(m);
             this._completeListener = () => this._onComplete();
         }
@@ -33,7 +44,7 @@
         render(el) {
             this._refreshPorts();
             this.refreshBtn.on('click', () => this._refreshPorts());
-            $(el).append(this.container);
+            $(el).append(this.card);
             const fileRow = $('<div style="display:flex; gap:4px;"></div>');
             fileRow.append(this.fileBtn, this.fileLabel);
             this.container.append(this.portSelect, this.refreshBtn, fileRow, this.startBtn, this.cancelBtn, this.progressWrapper, this.logArea);
@@ -113,6 +124,8 @@
 
         onSettingsChanged(newSettings) {
             this.settings = newSettings;
+            const header = this.card.find('.card-header a');
+            header.text(this.settings.title || 'Firmware Flasher');
         }
 
         onDispose() {

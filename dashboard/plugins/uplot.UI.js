@@ -12,7 +12,18 @@
     class UPlotConfigPanel {
         constructor(settings) {
             this.settings = settings;
-            this.container = $('<div style="height:100%; overflow-y:auto; padding:8px; box-sizing:border-box;"></div>');            
+            const id = 'uplotcfg_' + Math.random().toString(36).substr(2,5);
+            this.card = $(
+                `<div class="card h-100">
+                    <div class="card-header p-1">
+                        <a data-bs-toggle="collapse" href="#${id}" role="button" class="text-body fw-bold d-block">uPlot Config</a>
+                    </div>
+                    <div id="${id}" class="collapse show">
+                        <div class="card-body" style="overflow-y:auto; padding:8px; box-sizing:border-box;"></div>
+                    </div>
+                </div>`
+            );
+            this.container = this.card.find('.card-body');
             this.controls = {};
         }
 
@@ -38,9 +49,9 @@
             form.append(titleRow);
 
             const createInput = (labelText, key, type = 'text') => {
-                const wrapper = $('<div style="margin-bottom:8px; display:flex; justify-content: flex-end;"></div>');
-                const label = $(`<label style="flex:1">${labelText}</label>`);
-                const input = $(`<input type="${type}" style="width:70%; box-sizing:border-box;">`); 
+                const wrapper = $('<div class="mb-2 d-flex justify-content-end"></div>');
+                const label = $(`<label class="flex-grow-1">${labelText}</label>`);
+                const input = $(`<input type="${type}" class="form-control form-control-sm" style="width:70%;">`);
                 this.controls[key] = input;
                 wrapper.append(label).append(input);
                 return wrapper;
@@ -59,11 +70,11 @@
             legendWrapper.append(legendLabel).append(legendCheckbox);
             form.append(legendWrapper);
 
-            const btn = $('<button style="width:100%; box-sizing:border-box;">Apply Settings</button>');           
+            const btn = $('<button class="btn btn-primary w-100">Apply Settings</button>');
             btn.on('click', () => this.applySettings());
 
             this.container.append(form).append(btn);
-            $(containerElement).append(this.container);
+            $(containerElement).append(this.card);
 
             // Watch for future changes
             freeboard.on("initialized", () => this.populateWidgetDropdown());
