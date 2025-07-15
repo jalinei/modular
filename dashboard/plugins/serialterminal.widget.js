@@ -6,6 +6,7 @@
         settings: [
             { name: "title", display_name: "Title", type: "text" },
             { name: "datasourceName", display_name: "Datasource Name", type: "text" },
+            { name: "colorize", display_name: "Colorize", type: "boolean", default_value: true },
             { name: "refresh", display_name: "Refresh (ms)", type: "number", default_value: 500 },
             { name: "maxLines", display_name: "Max Lines", type: "number", default_value: 100 }
         ],
@@ -17,13 +18,30 @@
     class SerialTerminal {
         constructor(settings) {
             this.settings = settings;
-            this.container = $('<pre class="serial-terminal" style="overflow:auto; height:100%;"></pre>');
             this.ipcRenderer = window.require?.("electron")?.ipcRenderer;
             this.timer = null;
+            this.container = $('<div style="display:flex; flex-direction:column; height:100%; gap:4px;"></div>');
+            this.dsSelect = $('<select style="width:100%; box-sizing:border-box;"></select>');
+            this.colorCheck = $('<input type="checkbox">');
+            const colorLabel = $('<label style="align-self:flex-start;">Colorize </label>').prepend(this.colorCheck);
+            this.codeEl = $('<code></code>');
+            this.preEl = $('<pre class="serial-terminal" style="overflow:auto; flex:1; margin:0;"></pre>').append(this.codeEl);
+            this.container.append(this.dsSelect, colorLabel, this.preEl);
+            this._configHandler = () => this._refreshDatasourceOptions();
+            freeboard.on && freeboard.on('config_updated', this._configHandler);
         }
 
         render(containerElement) {
             $(containerElement).append(this.container);
+            this._refreshDatasourceOptions();
+            this.dsSelect.on('change', () => {
+                this.settings.datasourceName = this.dsSelect.val();
+            });
+            this.colorCheck.on('change', () => {
+                this.settings.colorize = this.colorCheck.prop('checked');
+            });
+            this.colorCheck.prop('checked', !!this.settings.colorize);
+            this.dsSelect.val(this.settings.datasourceName);
             this._updateTimer();
         }
 
@@ -36,8 +54,12 @@
                 if (Array.isArray(lines)) {
                     const max = parseInt(this.settings.maxLines) || 100;
                     const display = lines.slice(-max);
-                    const formatted = this._formatLines(display, ds.separator || ":");
-                    this.container.html(formatted.join("<br/>"));
+                    if (this.settings.colorize !== false) {
+                        const formatted = this._formatLines(display, ds.separator || ":");
+                        this.codeEl.html(formatted.join("<br/>"));
+                    } else {
+                        this.codeEl.text(display.join("\n"));
+                    }
                 }
             } catch (e) {
                 console.error("Terminal polling failed", e);
@@ -54,6 +76,26 @@
             });
         }
 
+        _refreshDatasourceOptions() {
+            const live = freeboard.getLiveModel?.();
+            if (!live || typeof live.datasources !== 'function') return;
+            const list = live.datasources();
+            const current = this.settings.datasourceName;
+            this.dsSelect.empty();
+            list.forEach(ds => {
+                try {
+                    if (ds.type && ds.type() === 'serialport_datasource') {
+                        const name = ds.name();
+                        this.dsSelect.append(`<option value="${name}">${name}</option>`);
+                    }
+                } catch (e) { /* ignore */ }
+            });
+            if (current && this.dsSelect.find(`option[value='${current}']`).length === 0) {
+                this.dsSelect.append(`<option value="${current}">${current}</option>`);
+            }
+            this.dsSelect.val(current);
+        }
+
         _updateTimer() {
             if (this.timer) clearInterval(this.timer);
             const interval = parseInt(this.settings.refresh) || 1000;
@@ -62,10 +104,18 @@
 
         onSettingsChanged(newSettings) {
             this.settings = newSettings;
+            this.colorCheck.prop('checked', !!this.settings.colorize);
+            this._refreshDatasourceOptions();
+            this.dsSelect.val(this.settings.datasourceName);
             this._updateTimer();
         }
 
-        onDispose() { if (this.timer) clearInterval(this.timer); }
+        onDispose() {
+            if (this.timer) clearInterval(this.timer);
+            if (this._configHandler && freeboard.off) {
+                freeboard.off('config_updated', this._configHandler);
+            }
+        }
 
         getHeight() { return 4; }
     }
