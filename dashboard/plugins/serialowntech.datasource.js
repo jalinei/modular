@@ -6,15 +6,6 @@
                 var timer;
                 // ipcRenderer is defined above
                 let latestData = [];
-               let headers = [];
-
-               function ensureHeaderCount(count) {
-                       if (headers.length >= count) return;
-                       for (let i = headers.length; i < count; i++) {
-                               const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
-                               headers.push({ label: `ch${i + 1}`, color });
-                       }
-               }
 
 		const eol = unescape(currentSettings.eol || "\\n");
 		const sep = currentSettings.separator || ":";
@@ -38,7 +29,6 @@
                                 const data = await ipcRenderer.invoke("get-serial-buffer", { path: currentSettings.portPath });
                                 if (Array.isArray(data)) {
                                         latestData = data;
-                                        ensureHeaderCount(latestData.length);
                                 }
                         } catch (err) {
                                 console.error("Failed to poll serial data:", err);
@@ -64,26 +54,17 @@
 		this.updateNow = async function () {
 			const date = new Date();
                         await pollData();
-                        ensureHeaderCount(latestData.length);
-			const data = {
-				numeric_value: date.getTime(),
-				full_string_value: date.toLocaleString(),
-				date_string_value: date.toLocaleDateString(),
-				time_string_value: date.toLocaleTimeString(),
-				date_object: date
-			};
-                        const headerMap = {};
+                        const data = {
+                                numeric_value: date.getTime(),
+                                full_string_value: date.toLocaleString(),
+                                date_string_value: date.toLocaleDateString(),
+                                time_string_value: date.toLocaleTimeString(),
+                                date_object: date
+                        };
                         latestData.forEach((val, idx) => {
                                 const key = `y${idx + 1}`;
                                 data[key] = val;
-                                if (headers[idx]) {
-                                        headerMap[key] = {
-                                                label: headers[idx].label,
-                                                color: headers[idx].color
-                                        };
-                                }
                         });
-                        data.headers = headerMap;
                         updateCallback(data);
                 };
 
@@ -102,7 +83,6 @@
 
                this.onSettingsChanged = function (newSettings) {
                        currentSettings = newSettings;
-                       headers = [];
                        updateTimer();
                        openPort();
                };
