@@ -3,9 +3,7 @@
         type_name: "serial_header_editor",
         display_name: "Serial Header Editor",
         description: "Edit header labels for a serial datasource",
-        settings: [
-            { name: "datasource", display_name: "Datasource Name", type: "text" }
-        ],
+        settings: [],
         newInstance: function (settings, newInstanceCallback) {
             newInstanceCallback(new SerialHeaderEditor(settings));
         }
@@ -15,9 +13,10 @@
         constructor(settings) {
             this.settings = settings;
             this.ipc = window.require?.("electron")?.ipcRenderer;
-            this.container = $('<div style="display:flex; flex-direction:column; gap:4px; height:100%;"></div>');
+            this.container = $('<div style="display:flex; flex-direction:column; gap:4px; height:100%; overflow:hidden;"></div>');
             this.dsSelect = $('<select style="width:100%; box-sizing:border-box;"></select>');
-            this.table = $('<table style="width:100%; font-size:12px;" border="1" cellspacing="0" cellpadding="4"><thead><tr><th>#</th><th>Label</th><th></th></tr></thead><tbody></tbody></table>');
+            this.tableWrap = $('<div style="flex:1; overflow:auto;"></div>');
+            this.table = $('<table style="width:100%; font-size:12px; table-layout:fixed;" border="1" cellspacing="0" cellpadding="4"><thead><tr><th style=\"width:30px\">#</th><th>Label</th><th style=\"width:30px\"></th></tr></thead><tbody></tbody></table>');
             this.addBtn = $('<button>Add Field</button>');
             this.saveBtn = $('<button>Save</button>');
             this._configHandler = () => this._refreshDatasourceOptions();
@@ -26,7 +25,8 @@
 
         render(el) {
             $(el).append(this.container);
-            this.container.append(this.dsSelect, this.table, this.addBtn, this.saveBtn);
+            this.container.append(this.dsSelect, this.tableWrap, this.addBtn, this.saveBtn);
+            this.tableWrap.append(this.table);
             this.addBtn.on('click', () => this._addRow());
             this.saveBtn.on('click', () => this._save());
             this.dsSelect.on('change', () => {
@@ -54,7 +54,7 @@
             const idx = tbody.children().length + 1;
             const row = $('<tr></tr>');
             row.append(`<td>${idx}</td>`);
-            const input = $(`<input type="text" style="width:100%;" value="${label}">`);
+            const input = $(`<input type="text" style="width:100%; box-sizing:border-box;" value="${label}">`);
             row.append($('<td></td>').append(input));
             const del = $('<button>✕</button>').on('click', () => { row.remove(); this._renumber(); });
             row.append($('<td></td>').append(del));
