@@ -39,7 +39,7 @@
             this.settings = settings;
             this.ipcRenderer = window.require?.("electron")?.ipcRenderer;
             this.container = $('<div class="serial-command-buttons d-flex flex-column gap-2 overflow-auto"></div>');
-            this.dsSelect = $('<select class="custom-select custom-select-sm flex-fill"></select>');
+            this.dsSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
             this.btnContainer = $('<div class="d-flex flex-wrap"></div>');
             this._configHandler = () => this._refreshDatasourceOptions();
             freeboard.on && freeboard.on('config_updated', this._configHandler);
