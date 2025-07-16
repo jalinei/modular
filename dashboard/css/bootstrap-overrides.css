@@ -7,5 +7,5 @@ textarea.form-control {
 
 #modal_overlay .modal {
   display: block;
-  position: absolute;
+  height: auto;
 }
