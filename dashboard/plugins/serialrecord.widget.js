@@ -68,7 +68,7 @@
             this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
 
             // Dropdown of available serial datasources
-            this.dsSelect = $('<select class="custom-select custom-select-sm flex-fill"></select>');
+            this.dsSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
             this._refreshDatasourceOptions();
             this.dsSelect.on('change', () => {
                 this.settings.datasource = this.dsSelect.val();
@@ -84,12 +84,22 @@
                 return row;
             };
 
-            this.orderSelect = $('<select class="custom-select custom-select-sm flex-fill"></select>');
+            const makeCheckRow = (labelText, checkEl) => {
+                const wrapper = $('<div class="mb-1"></div>');
+                wrapper.append(`<label class="form-label small">${labelText}</label>`);
+                const group = $('<div class="input-group input-group-sm"></div>');
+                const text = $('<div class="input-group-text"></div>').append(checkEl.addClass('mt-0 form-check-input'));
+                group.append(text);
+                wrapper.append(group);
+                return wrapper;
+            };
+
+            this.orderSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
             this.orderSelect.append('<option value="old">Old data on top</option>');
             this.orderSelect.append('<option value="new">Early data on top</option>');
 
-            this.headerCheck = $('<input class="form-check-input" type="checkbox">');
-            this.timeSelect = $('<select class="custom-select custom-select-sm flex-fill"></select>');
+            this.headerCheck = $('<input type="checkbox">');
+            this.timeSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
             this.timeSelect.append('<option value="none">None</option>');
             this.timeSelect.append('<option value="relative">Relative</option>');
             this.timeSelect.append('<option value="absolute">Absolute</option>');
@@ -100,7 +110,7 @@
             this.container.append(
                 makeRow('Datasource', this.dsSelect),
                 makeRow('Data Order', this.orderSelect),
-                makeRow('Add label on the first line', this.headerCheck),
+                makeCheckRow('Add label on the first line', this.headerCheck),
                 makeRow('Timestamp', this.timeSelect),
                 this.button
             );

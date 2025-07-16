@@ -178,7 +178,7 @@
                         <td>
                             <div class="input-group input-group-sm">
                                 <span class="input-group-text">Axis</span>
-                                <select class="custom-select custom-select-sm axis-select" data-index="${i}">
+                                <select class="form-select form-select-sm axis-select" data-index="${i}">
                                     <option value="y" ${ds.yAxisID === "y" ? "selected" : ""}>Y</option>
                                     <option value="y2" ${ds.yAxisID === "y2" ? "selected" : ""}>Y2</option>
                                 </select>
@@ -188,7 +188,7 @@
                         <td>
                             <div class="input-group input-group-sm">
                                 <span class="input-group-text">Style</span>
-                                <select class="custom-select custom-select-sm style-select" data-index="${i}">
+                                <select class="form-select form-select-sm style-select" data-index="${i}">
                                     ${Object.keys(lineStylesEnum).map(style =>
                                         `<option value="${style}" ${JSON.stringify(ds.borderDash) === JSON.stringify(lineStylesEnum[style]) ? "selected" : ""}>${style}</option>`
                                     ).join("")}

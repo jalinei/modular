@@ -24,7 +24,7 @@
 
             const titleRow = $('<div class="input-group input-group-sm mb-1"></div>');
             const titleLabel = $('<span class="input-group-text">Select Target Widget</span>');
-            const titleSelect = $('<select class="custom-select custom-select-sm"></select>');
+            const titleSelect = $('<select class="form-select form-select-sm"></select>');
             this.controls.target_widget_title = titleSelect;
 
             // Load settings only when user selects a widget manually
@@ -52,11 +52,15 @@
             form.append(createInput("Y Min", "yMin", "number"));
             form.append(createInput("Y Max", "yMax", "number"));
 
-            const legendWrapper = $('<div class="form-check form-switch mb-1"></div>');
-            const legendLabel = $('<label class="form-check-label">Show Legend</label>');
-            const legendCheckbox = $('<input class="form-check-input" type="checkbox">');
+            const legendWrapper = $('<div class="mb-1"></div>');
+            legendWrapper.append('<label class="form-label small">Show Legend</label>');
+            const legendGroup = $('<div class="input-group input-group-sm"></div>');
+            const legendText = $('<div class="input-group-text"></div>');
+            const legendCheckbox = $('<input type="checkbox">');
+            legendText.append(legendCheckbox.addClass('form-check-input mt-0'));
+            legendGroup.append(legendText);
+            legendWrapper.append(legendGroup);
             this.controls.showLegend = legendCheckbox;
-            legendWrapper.append(legendCheckbox).append(legendLabel);
             form.append(legendWrapper);
 
             const btn = $('<button class="btn btn-primary btn-sm w-100">Apply Settings</button>');
