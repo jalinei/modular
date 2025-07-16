@@ -25,7 +25,7 @@
     class OwnTechPlotUPlot {
         constructor(settings) {
             this.settings = settings;
-            this.container = $('<div style="width:100%; height:100%; overflow:hidden;"></div>');
+            this.container = $('<div class="w-100 h-100 overflow-auto"></div>');
             this.plot = null;
             this.seriesCount = 0;
             this.dataBuffer = [[], []]; // [timestamps, [series1, series2, ...]]

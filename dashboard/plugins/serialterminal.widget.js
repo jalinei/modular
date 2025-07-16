@@ -20,7 +20,7 @@
             this.settings = settings;
             this.ipcRenderer = window.require?.("electron")?.ipcRenderer;
             this.timer = null;
-            this.container = $('<div class="d-flex flex-column h-100 gap-2"></div>');
+            this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
             this.dsSelect = $('<select class="form-select form-select-sm"></select>');
             this.colorCheck = $('<input class="form-check-input" type="checkbox">');
             const colorWrapper = $('<div class="form-check form-switch mb-2"></div>');
