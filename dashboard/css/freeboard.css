@@ -1189,7 +1189,7 @@ header h1 {
         height: 100%;
         width: 100%;
         display: flex;
-        justify-content: center;
+        justify-content: flex-start;
         align-items: center;
         -moz-box-sizing: border-box;
         -webkit-box-sizing: border-box;
@@ -1199,7 +1199,7 @@ header h1 {
 /* Ensure plugin containers don't stretch full height so centering works */
 .widget > .h-100 {
         height: auto;
-        justify-content: center;
+        display: flex;
         align-items: center;
 }
 
