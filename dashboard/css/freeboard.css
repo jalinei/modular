@@ -1196,6 +1196,13 @@ header h1 {
         box-sizing: border-box;
 }
 
+/* Ensure plugin containers don't stretch full height so centering works */
+.widget > .h-100 {
+        height: auto;
+        justify-content: center;
+        align-items: center;
+}
+
 .widget.fillsize {
 	padding: 0;
 }
