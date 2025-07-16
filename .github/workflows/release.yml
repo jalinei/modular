@@ -1,0 +1,42 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+          - os: windows-latest
+            target: win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run dist -- --${{ matrix.target }}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.target }}-artifact
+          path: |
+            dist/*.AppImage
+            dist/*.exe
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          path: ./artifacts
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: ./artifacts/**/*
