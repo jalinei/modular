@@ -22,7 +22,7 @@
         }
     });
 
-    class OwnTechPlotUPlot {
+class OwnTechPlotUPlot {
         constructor(settings) {
             this.settings = settings;
             this.container = $('<div class="w-100 h-100 overflow-auto"></div>');
@@ -31,11 +31,50 @@
             this.dataBuffer = [[], []]; // [timestamps, [series1, series2, ...]]
             this.maxPoints = 2000;
             this.lastRender = 0;
+
+            this.ipc = window.require?.('electron')?.ipcRenderer;
+            this.headers = [];
+            this.datasourceName = '';
+            this.lastHeaderCheck = 0;
+            this._detectDatasource();
+        }
+
+        _detectDatasource() {
+            this.datasourceName = '';
+            if (typeof this.settings.data === 'string') {
+                const m = this.settings.data.match(/datasources\[["']([^"']+)["']\]/);
+                if (m) this.datasourceName = m[1];
+            }
+        }
+
+        async _fetchHeaders() {
+            if (!this.ipc || !this.datasourceName) return [];
+            const dsSettings = freeboard.getDatasourceSettings(this.datasourceName) || {};
+            const path = dsSettings.portPath || this.datasourceName;
+            try {
+                const headers = await this.ipc.invoke('get-serial-headers', { path });
+                return Array.isArray(headers) ? headers : [];
+            } catch (e) {
+                console.error('header fetch failed', e);
+                return [];
+            }
+        }
+
+        async _maybeUpdateHeaders(force = false) {
+            const now = Date.now();
+            if (!force && now - this.lastHeaderCheck < 1000) return;
+            this.lastHeaderCheck = now;
+            const hdrs = await this._fetchHeaders();
+            if (!_.isEqual(hdrs, this.headers)) {
+                this.headers = hdrs;
+                if (this.plot) this._resetPlot();
+            }
         }
 
         render(containerElement) {
             this.container.appendTo(containerElement);
             this._initPlot();
+            this._maybeUpdateHeaders(true);
         }
 
         _initPlot(series = null) {
@@ -43,7 +82,8 @@
             if (!series) {
                 for (let i = 0; i < this.seriesCount; i++) {
                     const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
-                    resolvedSeries.push({ label: `Channel ${i + 1}`, stroke: color });
+                    const lbl = this.headers[i] || `Channel ${i + 1}`;
+                    resolvedSeries.push({ label: lbl, stroke: color });
                 }
             }
 
@@ -126,7 +166,8 @@
             const series = [{ label: "Time" }];
             for (let i = 0; i < this.seriesCount; i++) {
                 const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
-                series.push({ label: `Channel ${i + 1}`, stroke: color });
+                const lbl = this.headers[i] || `Channel ${i + 1}`;
+                series.push({ label: lbl, stroke: color });
             }
 
             this.dataBuffer = [[], ...Array(this.seriesCount).fill().map(() => [])];
@@ -143,6 +184,8 @@
             const titleChanged = newSettings.title !== this.settings.title;
 
             this.settings = newSettings;
+            this._detectDatasource();
+            this._maybeUpdateHeaders(true);
 
             if (needsReset && this.plot) {
                 this._resetPlot();
@@ -157,6 +200,7 @@
         }
 
         onCalculatedValueChanged(settingName, newValue) {
+            this._maybeUpdateHeaders();
             if (!newValue) return;
 
             let yValues = [];
