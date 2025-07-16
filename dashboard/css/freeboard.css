@@ -1185,12 +1185,15 @@ header h1 {
 }
 
 .widget {
-	padding: 5px 10px 5px 10px;
-	height: 100%;
-	width: 100%;
-	-moz-box-sizing: border-box;
-	-webkit-box-sizing: border-box;
-	box-sizing: border-box;
+        padding: 5px 10px 5px 10px;
+        height: 100%;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        -moz-box-sizing: border-box;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
 }
 
 .widget.fillsize {
