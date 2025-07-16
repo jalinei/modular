@@ -15,6 +15,7 @@ const activeRecordings = new Map(); // Active CSV recordings mapped by port path
 const openPorts = new Map(); // key: path, value: SerialPort instance
 const terminalBuffers = new Map(); // key: path, value: array of raw lines
 const serialBuffers = new Map(); // key: path, value: array of parsed data arrays
+const headerBuffers = new Map(); // key: path, value: array of header labels
 const MAX_BUFFER_SIZE = 1000;
 const MAX_TERMINAL_LINES = 200;
 
@@ -104,6 +105,7 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
 
         terminalBuffers.set(path, []);
         serialBuffers.set(path, []);
+        headerBuffers.set(path, []);
 
 	port.on("data", chunk => {
 			rawBuffer += chunk.toString();
@@ -128,6 +130,7 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
                         openPorts.delete(path);
                         terminalBuffers.delete(path);
                         serialBuffers.delete(path);
+                        headerBuffers.delete(path);
         });
 
 	openPorts.set(path, port);
@@ -144,6 +147,17 @@ ipcMain.handle("get-terminal-buffer", (event, { path }) => {
         return terminalBuffers.get(path) || [];
 });
 
+// 🏷️ Get/set headers for a port
+ipcMain.handle('get-serial-headers', (_event, { path }) => {
+    return headerBuffers.get(path) || [];
+});
+
+ipcMain.handle('set-serial-headers', (_event, { path, headers }) => {
+    if (!Array.isArray(headers)) headers = [];
+    headerBuffers.set(path, headers);
+    return 'ok';
+});
+
 // ❌ Close port
 ipcMain.handle("close-serial-port", async (event, { path }) => {
 	const port = openPorts.get(path);
@@ -151,8 +165,11 @@ ipcMain.handle("close-serial-port", async (event, { path }) => {
 			return new Promise((resolve, reject) => {
 					port.close(err => {
 							if (err) return reject(err.message);
-							openPorts.delete(path);
-							resolve("closed");
+                                                        openPorts.delete(path);
+                                                        terminalBuffers.delete(path);
+                                                        serialBuffers.delete(path);
+                                                        headerBuffers.delete(path);
+                                                        resolve("closed");
 					});
 			});
 	} else {
@@ -190,6 +207,10 @@ ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eo
         }
         const sep = separator || ',';
         const eolStr = eol ? JSON.parse(`"${eol}"`) : '\n';
+        if (!headers || headers.length === 0) {
+                headers = headerBuffers.get(path) || [];
+        }
+        headerBuffers.set(path, headers);
         const recording = {
                 order,
                 addHeader,
@@ -320,6 +341,7 @@ ipcMain.on('cancel-flash', () => {
 ipcMain.handle('flush-serial-buffers', async (_event, { path }) => {
     terminalBuffers.set(path, []);
     serialBuffers.set(path, []);
+    headerBuffers.set(path, []);
     return 'flushed';
 });
 
