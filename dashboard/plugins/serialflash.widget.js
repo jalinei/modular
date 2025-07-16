@@ -16,16 +16,16 @@
             this.settings = settings;
             this.ipc = window.require?.('electron')?.ipcRenderer;
             this.path = window.require?.('path');
-            this.container = $('<div style="display:flex; flex-direction:column; height:100%; gap:4px;"></div>');
-            this.portSelect = $('<select style="width:100%; box-sizing:border-box;"></select>');
-            this.refreshBtn = $('<button>Refresh Ports</button>');
-            this.fileLabel = $('<span>No file selected</span>');
-            this.fileBtn = $('<button>Select Firmware</button>');
+            this.container = $('<div class="d-flex flex-column h-100 gap-2"></div>');
+            this.portSelect = $('<select class="form-select form-select-sm"></select>');
+            this.refreshBtn = $('<button class="btn btn-secondary btn-sm">Refresh Ports</button>');
+            this.fileLabel = $('<span class="flex-fill text-truncate">No file selected</span>');
+            this.fileBtn = $('<button class="btn btn-secondary btn-sm">Select Firmware</button>');
             this.selectedFilePath = null;
-            this.startBtn = $('<button>Flash Firmware</button>');
-            this.cancelBtn = $('<button style="display:none;">Cancel</button>');
-            this.progressWrapper = $('<div class="progress" style="height:20px; display:none;"><div class="progress-bar" style="width:0%"></div></div>');
-            this.logArea = $('<textarea readonly style="flex:1; width:100%; display:none; box-sizing:border-box;"></textarea>');
+            this.startBtn = $('<button class="btn btn-primary btn-sm">Flash Firmware</button>');
+            this.cancelBtn = $('<button class="btn btn-danger btn-sm" style="display:none;">Cancel</button>');
+            this.progressWrapper = $('<div class="progress" style="height:20px; display:none;"><div class="progress-bar" role="progressbar" style="width:0%"></div></div>');
+            this.logArea = $('<textarea class="form-control bg-dark text-light" readonly style="flex:1; display:none;"></textarea>');
             this._progressListener = (_e, m) => this._onProgress(m);
             this._completeListener = () => this._onComplete();
         }
@@ -34,7 +34,7 @@
             this._refreshPorts();
             this.refreshBtn.on('click', () => this._refreshPorts());
             $(el).append(this.container);
-            const fileRow = $('<div style="display:flex; gap:4px;"></div>');
+            const fileRow = $('<div class="d-flex gap-2 align-items-center"></div>');
             fileRow.append(this.fileBtn, this.fileLabel);
             this.container.append(this.portSelect, this.refreshBtn, fileRow, this.startBtn, this.cancelBtn, this.progressWrapper, this.logArea);
 

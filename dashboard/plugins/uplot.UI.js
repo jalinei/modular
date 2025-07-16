@@ -12,7 +12,7 @@
     class UPlotConfigPanel {
         constructor(settings) {
             this.settings = settings;
-            this.container = $('<div style="height:100%; overflow-y:auto; padding:8px; box-sizing:border-box;"></div>');            
+            this.container = $('<div class="h-100 overflow-auto p-2"></div>');
             this.controls = {};
         }
 
@@ -22,9 +22,9 @@
 
             const form = $('<div></div>');
 
-            const titleRow = $('<div style="margin-bottom:8px;"></div>');
-            const titleLabel = $('<label style="display:block;">Select Target Widget</label>');
-            const titleSelect = $('<select style="width:100%; box-sizing:border-box;"></select>');
+            const titleRow = $('<div class="mb-2"></div>');
+            const titleLabel = $('<label class="form-label">Select Target Widget</label>');
+            const titleSelect = $('<select class="form-select form-select-sm"></select>');
             this.controls.target_widget_title = titleSelect;
 
             // Load settings only when user selects a widget manually
@@ -38,9 +38,9 @@
             form.append(titleRow);
 
             const createInput = (labelText, key, type = 'text') => {
-                const wrapper = $('<div style="margin-bottom:8px; display:flex; justify-content: flex-end;"></div>');
-                const label = $(`<label style="flex:1">${labelText}</label>`);
-                const input = $(`<input type="${type}" style="width:70%; box-sizing:border-box;">`); 
+                const wrapper = $('<div class="input-group input-group-sm mb-2"></div>');
+                const label = $(`<span class="input-group-text">${labelText}</span>`);
+                const input = $(`<input type="${type}" class="form-control">`);
                 this.controls[key] = input;
                 wrapper.append(label).append(input);
                 return wrapper;
@@ -52,14 +52,14 @@
             form.append(createInput("Y Min", "yMin", "number"));
             form.append(createInput("Y Max", "yMax", "number"));
 
-            const legendWrapper = $('<div style="margin-bottom:8px;"></div>');
-            const legendLabel = $('<label>Show Legend</label>');
-            const legendCheckbox = $('<input type="checkbox">');
+            const legendWrapper = $('<div class="form-check form-switch mb-2"></div>');
+            const legendLabel = $('<label class="form-check-label">Show Legend</label>');
+            const legendCheckbox = $('<input class="form-check-input" type="checkbox">');
             this.controls.showLegend = legendCheckbox;
-            legendWrapper.append(legendLabel).append(legendCheckbox);
+            legendWrapper.append(legendCheckbox).append(legendLabel);
             form.append(legendWrapper);
 
-            const btn = $('<button style="width:100%; box-sizing:border-box;">Apply Settings</button>');           
+            const btn = $('<button class="btn btn-primary btn-sm w-100">Apply Settings</button>');
             btn.on('click', () => this.applySettings());
 
             this.container.append(form).append(btn);
