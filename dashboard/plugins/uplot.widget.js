@@ -25,17 +25,22 @@
     class OwnTechPlotUPlot {
         constructor(settings) {
             this.settings = settings;
-            this.container = $('<div style="width:100%; height:100%; overflow:hidden;"></div>');
+            this.container = $('<div style="width:100%; height:100%; display:flex; flex-direction:column; overflow:hidden;"></div>');
             this.plot = null;
             this.seriesCount = 0;
             this.dataBuffer = [[], []]; // [timestamps, [series1, series2, ...]]
             this.maxPoints = 2000;
             this.lastRender = 0;
+            this.resizeObserver = null;
         }
 
         render(containerElement) {
             this.container.appendTo(containerElement);
             this._initPlot();
+            if (window.ResizeObserver) {
+                this.resizeObserver = new ResizeObserver(() => this.onSizeChanged());
+                this.resizeObserver.observe(this.container[0]);
+            }
         }
 
         _initPlot(series = null) {
@@ -179,6 +184,10 @@
         }
 
         onDispose() {
+            if (this.resizeObserver) {
+                this.resizeObserver.disconnect();
+                this.resizeObserver = null;
+            }
             if (this.plot) {
                 this.plot.destroy();
                 this.plot = null;

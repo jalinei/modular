@@ -93,6 +93,7 @@
             this.settings = settings;
             this.chart = null;
             this.container = $("<div class='owntech-plot' style='height:100%; width:100%; display:flex; flex-direction:column; overflow:hidden;'></div>");
+            this.resizeObserver = null;
         }
 
         render(containerElement) {
@@ -163,6 +164,11 @@
                 </div>
             `;
             this.container.append(configHTML);
+
+            if (window.ResizeObserver) {
+                this.resizeObserver = new ResizeObserver(() => this._resizePlot());
+                this.resizeObserver.observe(this.container[0]);
+            }
         }
 
         updateLegendConfigUI() {
@@ -313,6 +319,10 @@
         }
 
         onDispose() {
+            if (this.resizeObserver) {
+                this.resizeObserver.disconnect();
+                this.resizeObserver = null;
+            }
             if (this.chart) {
                 this.chart.destroy();
             }
