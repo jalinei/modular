@@ -16,7 +16,7 @@
             this.settings = settings;
             this.ipc = window.require?.("electron")?.ipcRenderer;
             this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
-            this.dsSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
+            this.dsSelect = $('<select class="custom-select custom-select-sm flex-fill"></select>');
             this.toggleBtn = $('<button class="btn btn-primary btn-sm w-100"></button>');
             this.clearBtn = $('<button class="btn btn-secondary btn-sm w-100">Clear</button>');
             this.isOpen = false;

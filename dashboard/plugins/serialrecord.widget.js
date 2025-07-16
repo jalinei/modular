@@ -68,7 +68,7 @@
             this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
 
             // Dropdown of available serial datasources
-            this.dsSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
+            this.dsSelect = $('<select class="custom-select custom-select-sm flex-fill"></select>');
             this._refreshDatasourceOptions();
             this.dsSelect.on('change', () => {
                 this.settings.datasource = this.dsSelect.val();
@@ -84,12 +84,12 @@
                 return row;
             };
 
-            this.orderSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
+            this.orderSelect = $('<select class="custom-select custom-select-sm flex-fill"></select>');
             this.orderSelect.append('<option value="old">Old data on top</option>');
             this.orderSelect.append('<option value="new">Early data on top</option>');
 
             this.headerCheck = $('<input class="form-check-input" type="checkbox">');
-            this.timeSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
+            this.timeSelect = $('<select class="custom-select custom-select-sm flex-fill"></select>');
             this.timeSelect.append('<option value="none">None</option>');
             this.timeSelect.append('<option value="relative">Relative</option>');
             this.timeSelect.append('<option value="absolute">Absolute</option>');
