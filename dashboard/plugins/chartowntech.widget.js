@@ -92,14 +92,14 @@
         constructor(settings) {
             this.settings = settings;
             this.chart = null;
-            this.container = $("<div class='owntech-plot' style='height:100%; width:100%; overflow-y: auto;'></div>");
+            this.container = $("<div class='owntech-plot' style='height:100%; width:100%; display:flex; flex-direction:column; overflow:hidden;'></div>");
         }
 
         render(containerElement) {
             this.container.appendTo(containerElement);
 
             const canvas = $("<canvas></canvas>")
-                .css({ height: "100%", width: "100%" })
+                .css({ width: "100%", flex: "1 1 auto" })
                 .appendTo(this.container)[0];
             const ctx = canvas.getContext('2d');
 
@@ -146,7 +146,7 @@
 
             // Add configuration table below chart
             const configHTML = `
-                <div class="chart-config-panel" style="margin-top: 10px;">
+                <div class="chart-config-panel" style="margin-top: 10px; flex-shrink:0;">
                     <table style="width: 100%; font-size: 12px;" border="1" cellspacing="0" cellpadding="4">
                         <thead>
                             <tr>
