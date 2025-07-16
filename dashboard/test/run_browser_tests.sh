@@ -1,3 +1,3 @@
 cd "$( dirname "$0" )"
 cd ..
-casperjs test test/casper/tests/
+npx casperjs test test/casper/tests/
