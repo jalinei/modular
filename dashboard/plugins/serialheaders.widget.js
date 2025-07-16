@@ -67,6 +67,16 @@
             });
         }
 
+        async _detectChannelCount() {
+            if (!this.ipc) return null;
+            try {
+                const path = await this._getPortPath();
+                const sample = await this.ipc.invoke('get-serial-buffer', { path });
+                if (Array.isArray(sample)) return sample.length;
+            } catch (e) { /* ignore */ }
+            return null;
+        }
+
         async _loadHeaders() {
             this._clearRows();
             if (!this.settings.datasource) return;
@@ -85,8 +95,14 @@
                     headers = dsSettings.headers.split(/[,;]+/).map(h => h.trim()).filter(Boolean);
                 }
             }
-            headers.forEach(h => this._addRow(h));
-            if (headers.length === 0) this._addRow('');
+
+            if (Array.isArray(headers) && headers.length) {
+                headers.forEach(h => this._addRow(h));
+            } else {
+                let count = await this._detectChannelCount();
+                if (!count || count < 1) count = 16;
+                for (let i = 0; i < count; i++) this._addRow('');
+            }
         }
 
         async _save() {
