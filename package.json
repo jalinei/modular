@@ -4,7 +4,8 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "test": "cd dashboard/test && sh ./run_browser_tests.sh"
   },
   "keywords": [],
   "author": "",
@@ -20,5 +21,9 @@
     "luxon": "^3.6.1",
     "raphael": "^2.3.0",
     "serialport": "^13.0.0"
+  },
+  "devDependencies": {
+    "casperjs": "^1.1.4",
+    "phantomjs-prebuilt": "^2.1.16"
   }
 }
