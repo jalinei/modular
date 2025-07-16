@@ -16,7 +16,7 @@
             this.settings = settings;
             this.ipc = window.require?.("electron")?.ipcRenderer;
             this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
-            this.dsSelect = $('<select class="form-select form-select-sm"></select>');
+            this.dsSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
             this.toggleBtn = $('<button class="btn btn-primary btn-sm w-100"></button>');
             this.clearBtn = $('<button class="btn btn-secondary btn-sm w-100">Clear</button>');
             this.isOpen = false;
@@ -27,7 +27,9 @@
 
         render(el) {
             $(el).append(this.container);
-            this.container.append(this.dsSelect, this.toggleBtn, this.clearBtn);
+            const dsRow = $('<div class="input-group input-group-sm mb-2"></div>');
+            dsRow.append('<span class="input-group-text">Datasource</span>', this.dsSelect);
+            this.container.append(dsRow, this.toggleBtn, this.clearBtn);
             this.dsSelect.on('change', () => {
                 this.settings.datasource = this.dsSelect.val();
                 this._updateStatus();

@@ -17,10 +17,10 @@
             this.ipc = window.require?.('electron')?.ipcRenderer;
             this.path = window.require?.('path');
             this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
-            this.portSelect = $('<select class="form-select form-select-sm"></select>');
-            this.refreshBtn = $('<button class="btn btn-secondary btn-sm">Refresh Ports</button>');
-            this.fileLabel = $('<span class="flex-fill text-truncate">No file selected</span>');
-            this.fileBtn = $('<button class="btn btn-secondary btn-sm">Select Firmware</button>');
+            this.portSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
+            this.refreshBtn = $('<button class="btn btn-secondary btn-sm">Refresh</button>');
+            this.fileLabel = $('<input type="text" class="form-control form-control-sm" readonly value="No file selected">');
+            this.fileBtn = $('<button class="btn btn-secondary btn-sm">Browse</button>');
             this.selectedFilePath = null;
             this.startBtn = $('<button class="btn btn-primary btn-sm">Flash Firmware</button>');
             this.cancelBtn = $('<button class="btn btn-danger btn-sm" style="display:none;">Cancel</button>');
@@ -34,9 +34,11 @@
             this._refreshPorts();
             this.refreshBtn.on('click', () => this._refreshPorts());
             $(el).append(this.container);
-            const fileRow = $('<div class="d-flex gap-2 align-items-center"></div>');
+            const portRow = $('<div class="input-group input-group-sm mb-2"></div>');
+            portRow.append('<span class="input-group-text">Port</span>', this.portSelect, this.refreshBtn);
+            const fileRow = $('<div class="input-group input-group-sm mb-2"></div>');
             fileRow.append(this.fileBtn, this.fileLabel);
-            this.container.append(this.portSelect, this.refreshBtn, fileRow, this.startBtn, this.cancelBtn, this.progressWrapper, this.logArea);
+            this.container.append(portRow, fileRow, this.startBtn, this.cancelBtn, this.progressWrapper, this.logArea);
 
             this.fileBtn.on('click', async () => {
                 if (!this.ipc) return;
@@ -44,7 +46,7 @@
                 if (chosen) {
                     this.selectedFilePath = chosen;
                     const name = this.path ? this.path.basename(chosen) : chosen;
-                    this.fileLabel.text(name);
+                    this.fileLabel.val(name);
                 }
             });
             this.startBtn.on('click', () => this._startFlash());
