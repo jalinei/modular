@@ -171,12 +171,6 @@
             } else {
                 const dsSettings = freeboard.getDatasourceSettings(this.settings.datasource) || {};
                 this.portPath = dsSettings.portPath || this.settings.datasource;
-                let headers = [];
-                if (Array.isArray(dsSettings.headers)) {
-                    headers = dsSettings.headers.map(obj => obj.label).filter(Boolean);
-                } else if (typeof dsSettings.headers === 'string') {
-                    headers = dsSettings.headers.split(/[,;]+/).map(h => h.trim()).filter(h => h);
-                }
                 await this.ipc.invoke('start-csv-record', {
                     path: this.portPath,
                     filePath: this.settings.filePath,
@@ -184,8 +178,7 @@
                     eol: dsSettings.eol || this.settings.eol,
                     order: this.settings.order,
                     addHeader: this.settings.addHeader,
-                    timestampMode: this.settings.timestampMode,
-                    headers
+                    timestampMode: this.settings.timestampMode
                 });
                 this.isRecording = true;
                 this.button.text('Stop Record');

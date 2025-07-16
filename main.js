@@ -180,7 +180,7 @@ ipcMain.handle("write-serial-port", async (event, { path, data }) => {
 });
 
 // 📂 Start CSV recording for a given port
-ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eol, order = 'old', addHeader = true, timestampMode = 'none', headers = [] }) => {
+ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eol, order = 'old', addHeader = true, timestampMode = 'none' }) => {
 		const port = openPorts.get(path);
         if (!port) {
                 throw new Error('port not open');
@@ -224,8 +224,7 @@ ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eo
                                         header.push(timestampMode === 'relative' ? 'time_ms' : 'timestamp');
                                 }
                                 for (let i = 0; i < values.length; i++) {
-                                        const label = headers[i] || `ch${i + 1}`;
-                                        header.push(label);
+                                        header.push(`ch${i + 1}`);
                                 }
                                 const headerLine = header.join(',');
                                 if (order === 'old') {

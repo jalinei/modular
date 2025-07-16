@@ -6,53 +6,15 @@
                 var timer;
                 // ipcRenderer is defined above
                 let latestData = [];
-                function parseHeaders(input) {
-                        const out = [];
-                        if (Array.isArray(input)) {
-                                input.forEach(item => {
-                                        if (typeof item === "string") {
-                                                out.push({ label: item });
-                                        } else if (item && typeof item === "object") {
-                                                const h = { label: item.label || "" };
-                                                if (item.color) h.color = item.color;
-                                                if (h.label || h.color) out.push(h);
-                                        }
-                                });
-                        } else if (typeof input === "string") {
-                                input.split(/[,;]+/).forEach(part => {
-                                        const label = part.trim();
-                                        if (label) out.push({ label });
-                                });
-                        }
-                        return out;
-                }
+               let headers = [];
 
-                let headers = parseHeaders(currentSettings.headers);
-
-                function ensureHeaderCount(count) {
-                        if (headers.length >= count) return;
-                        for (let i = headers.length; i < count; i++) {
-                                const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
-                                headers.push({ label: `ch${i + 1}`, color });
-                        }
-                        currentSettings.headers = headers.map(h => ({ label: h.label, color: h.color }));
-
-                        if (typeof freeboard?.getDatasourceSettings === "function" && typeof freeboard?.setDatasourceSettings === "function") {
-                                const live = freeboard.getLiveModel?.();
-                                const list = live?.datasources?.();
-                                if (Array.isArray(list)) {
-                                        for (const ds of list) {
-                                                try {
-                                                        if (ds.settings().portPath === currentSettings.portPath && ds.type() === "serialport_datasource") {
-                                                                const name = ds.name();
-                                                                freeboard.setDatasourceSettings(name, { headers: currentSettings.headers });
-                                                                break;
-                                                        }
-                                                } catch (e) { /* ignore */ }
-                                        }
-                                }
-                        }
-                }
+               function ensureHeaderCount(count) {
+                       if (headers.length >= count) return;
+                       for (let i = headers.length; i < count; i++) {
+                               const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
+                               headers.push({ label: `ch${i + 1}`, color });
+                       }
+               }
 
 		const eol = unescape(currentSettings.eol || "\\n");
 		const sep = currentSettings.separator || ":";
@@ -138,12 +100,12 @@
 			}
 		};
 
-                this.onSettingsChanged = function (newSettings) {
-                        currentSettings = newSettings;
-                        headers = parseHeaders(currentSettings.headers);
-                        updateTimer();
-                        openPort();
-                };
+               this.onSettingsChanged = function (newSettings) {
+                       currentSettings = newSettings;
+                       headers = [];
+                       updateTimer();
+                       openPort();
+               };
 
 		stopTimer();
 		updateTimer();
@@ -190,16 +152,6 @@
                                 display_name: "End of Line",
                                 type: "text",
                                 default_value: "\\r\\n"
-                        },
-                        {
-                                name: "headers",
-                                display_name: "Headers",
-                                type: "array",
-                                settings: [
-                                        { name: "label", display_name: "Label", type: "text" },
-                                        { name: "color", display_name: "Color", type: "text" }
-                                ],
-                                description: "Labels and colors for each value in the data array"
                         },
                         {
                                 name: "refresh",
