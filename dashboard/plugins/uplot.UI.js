@@ -52,16 +52,16 @@
             form.append(createInput("Y Min", "yMin", "number"));
             form.append(createInput("Y Max", "yMax", "number"));
 
-            const legendWrapper = $('<div class="mb-1"></div>');
-            legendWrapper.append('<label class="form-label small">Show Legend</label>');
-            const legendGroup = $('<div class="input-group input-group-sm"></div>');
-            const legendText = $('<div class="input-group-text"></div>');
-            const legendCheckbox = $('<input type="checkbox">');
-            legendText.append(legendCheckbox.addClass('form-check-input mt-0'));
-            legendGroup.append(legendText);
-            legendWrapper.append(legendGroup);
+            const legendRow = $('<div class="input-group input-group-sm mb-1"></div>');
+            const legendId = `chk_${Math.random().toString(36).slice(2)}`;
+            const legendCheckbox = $('<input type="checkbox">')
+                .addClass('form-check-input mt-0')
+                .attr('id', legendId);
+            const legendLabel = $(`<label class="input-group-text" for="${legendId}">Show Legend</label>`);
+            const legendBox = $('<span class="input-group-text"></span>').append(legendCheckbox);
+            legendRow.append(legendLabel).append(legendBox);
             this.controls.showLegend = legendCheckbox;
-            form.append(legendWrapper);
+            form.append(legendRow);
 
             const btn = $('<button class="btn btn-primary btn-sm w-100">Apply Settings</button>');
             btn.on('click', () => this.applySettings());
