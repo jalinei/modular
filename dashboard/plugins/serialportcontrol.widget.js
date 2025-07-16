@@ -15,10 +15,10 @@
         constructor(settings) {
             this.settings = settings;
             this.ipc = window.require?.("electron")?.ipcRenderer;
-            this.container = $('<div style="display:flex; flex-direction:column; height:100%; gap:4px;"></div>');
-            this.dsSelect = $('<select style="width:100%; box-sizing:border-box;"></select>');
-            this.toggleBtn = $('<button style="width:100%; box-sizing:border-box;"></button>');
-            this.clearBtn = $('<button style="width:100%; box-sizing:border-box;">Clear</button>');
+            this.container = $('<div class="d-flex flex-column h-100 gap-2"></div>');
+            this.dsSelect = $('<select class="form-select form-select-sm"></select>');
+            this.toggleBtn = $('<button class="btn btn-primary btn-sm w-100"></button>');
+            this.clearBtn = $('<button class="btn btn-secondary btn-sm w-100">Clear</button>');
             this.isOpen = false;
             this.timer = null;
             this._configHandler = () => this._refreshDatasourceOptions();

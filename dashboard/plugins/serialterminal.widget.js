@@ -20,13 +20,14 @@
             this.settings = settings;
             this.ipcRenderer = window.require?.("electron")?.ipcRenderer;
             this.timer = null;
-            this.container = $('<div style="display:flex; flex-direction:column; height:100%; gap:4px;"></div>');
-            this.dsSelect = $('<select style="width:100%; box-sizing:border-box;"></select>');
-            this.colorCheck = $('<input type="checkbox">');
-            const colorLabel = $('<label style="align-self:flex-start;">Colorize </label>').prepend(this.colorCheck);
+            this.container = $('<div class="d-flex flex-column h-100 gap-2"></div>');
+            this.dsSelect = $('<select class="form-select form-select-sm"></select>');
+            this.colorCheck = $('<input class="form-check-input" type="checkbox">');
+            const colorWrapper = $('<div class="form-check form-switch mb-2"></div>');
+            colorWrapper.append(this.colorCheck).append('<label class="form-check-label">Colorize</label>');
             this.codeEl = $('<code></code>');
             this.preEl = $('<pre class="serial-terminal" style="overflow:auto; flex:1; margin:0;"></pre>').append(this.codeEl);
-            this.container.append(this.dsSelect, colorLabel, this.preEl);
+            this.container.append(this.dsSelect, colorWrapper, this.preEl);
             this._configHandler = () => this._refreshDatasourceOptions();
             freeboard.on && freeboard.on('config_updated', this._configHandler);
         }

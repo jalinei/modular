@@ -65,10 +65,10 @@
             this.settings = settings;
             this.ipc = window.require?.("electron")?.ipcRenderer;
             this.isRecording = false;
-            this.container = $('<div style="height:100%; display:flex; flex-direction:column; gap:4px;"></div>');
+            this.container = $('<div class="d-flex flex-column h-100 gap-2"></div>');
 
             // Dropdown of available serial datasources
-            this.dsSelect = $('<select style="flex:1; box-sizing:border-box;"></select>');
+            this.dsSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
             this._refreshDatasourceOptions();
             this.dsSelect.on('change', () => {
                 this.settings.datasource = this.dsSelect.val();
@@ -78,23 +78,23 @@
             freeboard.on && freeboard.on('config_updated', this._configHandler);
 
             const makeRow = (labelText, inputEl) => {
-                const row = $('<div style="display:flex; align-items:center; gap:4px;"></div>');
-                const label = $(`<label style="flex:1;">${labelText}</label>`);
+                const row = $('<div class="input-group input-group-sm mb-2"></div>');
+                const label = $(`<span class="input-group-text">${labelText}</span>`);
                 row.append(label).append(inputEl);
                 return row;
             };
 
-            this.orderSelect = $('<select style="flex:1; box-sizing:border-box;"></select>');
+            this.orderSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
             this.orderSelect.append('<option value="old">Old data on top</option>');
             this.orderSelect.append('<option value="new">Early data on top</option>');
 
-            this.headerCheck = $('<input type="checkbox">');
-            this.timeSelect = $('<select style="flex:1; box-sizing:border-box;"></select>');
+            this.headerCheck = $('<input class="form-check-input" type="checkbox">');
+            this.timeSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
             this.timeSelect.append('<option value="none">None</option>');
             this.timeSelect.append('<option value="relative">Relative</option>');
             this.timeSelect.append('<option value="absolute">Absolute</option>');
 
-            this.button = $('<button class="serial-rec-btn" style="width:100%; box-sizing:border-box; height:32px;"></button>').text('Start Record');
+            this.button = $('<button class="btn btn-primary btn-sm w-100 serial-rec-btn"></button>').text('Start Record');
             this.portPath = null;
 
             this.container.append(

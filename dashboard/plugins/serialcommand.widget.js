@@ -38,9 +38,9 @@
         constructor(settings) {
             this.settings = settings;
             this.ipcRenderer = window.require?.("electron")?.ipcRenderer;
-            this.container = $('<div class="serial-command-buttons" style="display:flex; flex-direction:column; gap:4px;"></div>');
-            this.dsSelect = $('<select style="width:100%; box-sizing:border-box;"></select>');
-            this.btnContainer = $('<div></div>');
+            this.container = $('<div class="serial-command-buttons d-flex flex-column gap-2"></div>');
+            this.dsSelect = $('<select class="form-select form-select-sm"></select>');
+            this.btnContainer = $('<div class="d-flex flex-wrap"></div>');
             this._configHandler = () => this._refreshDatasourceOptions();
             freeboard.on && freeboard.on('config_updated', this._configHandler);
         }
@@ -82,16 +82,16 @@
             this.btnContainer.empty();
             const layout = this.settings.layout || "vertical";
             const buttons = this.settings.buttons || [];
+            this.btnContainer.toggleClass('flex-column', layout !== 'horizontal');
+            this.btnContainer.toggleClass('flex-row', layout === 'horizontal');
             buttons.forEach(cfg => {
-                const btn = $('<button></button>')
-                    .text(cfg.label || cfg.command)
-                    .css({
-                        margin: "2px",
-                        display: layout === "horizontal" ? "inline-block" : "block",
-                        width: layout === "horizontal" ? "80px" : "100%",
-                        height: "32px",
-                        boxSizing: "border-box"
-                    });
+                const btn = $('<button class="btn btn-primary btn-sm"></button>')
+                    .text(cfg.label || cfg.command);
+                if (layout === "horizontal") {
+                    btn.addClass('me-1 mb-1');
+                } else {
+                    btn.addClass('mb-1 w-100');
+                }
                 btn.on('click', () => this._sendCommand(cfg.command));
                 this.btnContainer.append(btn);
             });
