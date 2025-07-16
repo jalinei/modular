@@ -945,7 +945,15 @@ header h1 {
 }
 
 .sub-section:last-of-type {
-	border-bottom: none;
+        border-bottom: none;
+}
+
+.sub-section.collapsed {
+        height: 30px !important;
+}
+
+.sub-section.collapsed .widget {
+        display: none;
 }
 
 #pump-icon {

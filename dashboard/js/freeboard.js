@@ -2239,8 +2239,17 @@ function WidgetModel(theFreeboardModel, widgetPlugins) {
 	this.datasourceRefreshNotifications = {};
 	this.calculatedSettingScripts = {};
 
-	this.title = ko.observable();
-	this.fillSize = ko.observable(false);
+        this.title = ko.observable();
+        this.fillSize = ko.observable(false);
+        this.collapsed = ko.observable(false);
+
+        this.toggleCollapse = function(){
+                self.collapsed(!self.collapsed());
+                self._heightUpdate.valueHasMutated();
+                if(typeof freeboardUI !== 'undefined') {
+                        freeboardUI.processResize(true);
+                }
+        };
 
 	this.type = ko.observable();
 	this.type.subscribe(function (newValue) {
@@ -2395,18 +2404,22 @@ function WidgetModel(theFreeboardModel, widgetPlugins) {
 		});
 	}
 
-	this._heightUpdate = ko.observable();
-	this.height = ko.computed({
-		read: function () {
-			self._heightUpdate();
+        this._heightUpdate = ko.observable();
+        this.height = ko.computed({
+                read: function () {
+                        self._heightUpdate();
 
-			if (!_.isUndefined(self.widgetInstance) && _.isFunction(self.widgetInstance.getHeight)) {
-				return self.widgetInstance.getHeight();
-			}
+                        if(self.collapsed()) {
+                                return 0;
+                        }
 
-			return 1;
-		}
-	});
+                        if (!_.isUndefined(self.widgetInstance) && _.isFunction(self.widgetInstance.getHeight)) {
+                                return self.widgetInstance.getHeight();
+                        }
+
+                        return 1;
+                }
+        });
 
 	this.shouldRender = ko.observable(false);
 	this.render = function (element) {
@@ -2421,19 +2434,21 @@ function WidgetModel(theFreeboardModel, widgetPlugins) {
 
 	}
 
-	this.serialize = function () {
-		return {
-			title: self.title(),
-			type: self.type(),
-			settings: self.settings()
-		};
-	}
+        this.serialize = function () {
+                return {
+                        title: self.title(),
+                        type: self.type(),
+                        settings: self.settings(),
+                        collapsed: self.collapsed()
+                };
+        }
 
-	this.deserialize = function (object) {
-		self.title(object.title);
-		self.settings(object.settings);
-		self.type(object.type);
-	}
+        this.deserialize = function (object) {
+                self.title(object.title);
+                self.settings(object.settings);
+                self.type(object.type);
+                self.collapsed(object.collapsed || false);
+        }
 }
 
 // ┌────────────────────────────────────────────────────────────────────┐ \\
