@@ -188,5 +188,14 @@
         getHeight() {
             return 6;
         }
+
+        onSizeChanged() {
+            if (this.plot) {
+                this.plot.setSize({
+                    width: this.container.width(),
+                    height: this.container.height()
+                });
+            }
+        }
     }
 })();

@@ -98,7 +98,9 @@
         render(containerElement) {
             this.container.appendTo(containerElement);
 
-            const canvas = $("<canvas></canvas>").css({ height: "300px", width: "100%" }).appendTo(this.container)[0];
+            const canvas = $("<canvas></canvas>")
+                .css({ height: "100%", width: "100%" })
+                .appendTo(this.container)[0];
             const ctx = canvas.getContext('2d');
 
             // Chart.js setup
@@ -234,16 +236,17 @@
         }
 
         _resizePlot() {
-            if (this.plot && this.container.is(":visible")) {
-                this.plot.setSize({
-                    width: this.container.width(),
-                    height: this.container.height()
-                });
+            if (this.chart && this.container.is(":visible")) {
+                this.chart.resize();
             }
         }
 
         getHeight() {
             return 6; // You can customize this based on preference
+        }
+
+        onSizeChanged() {
+            this._resizePlot();
         }
 
         onSettingsChanged(newSettings) {
