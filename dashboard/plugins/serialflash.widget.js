@@ -34,9 +34,9 @@
             this._refreshPorts();
             this.refreshBtn.on('click', () => this._refreshPorts());
             $(el).append(this.container);
-            const portRow = $('<div class="input-group input-group-sm mb-2"></div>');
+            const portRow = $('<div class="input-group input-group-sm mb-1"></div>');
             portRow.append('<span class="input-group-text">Port</span>', this.portSelect, this.refreshBtn);
-            const fileRow = $('<div class="input-group input-group-sm mb-2"></div>');
+            const fileRow = $('<div class="input-group input-group-sm mb-1"></div>');
             fileRow.append(this.fileBtn, this.fileLabel);
             this.container.append(portRow, fileRow, this.startBtn, this.cancelBtn, this.progressWrapper, this.logArea);
 

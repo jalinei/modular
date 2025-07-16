@@ -78,7 +78,7 @@
             freeboard.on && freeboard.on('config_updated', this._configHandler);
 
             const makeRow = (labelText, inputEl) => {
-                const row = $('<div class="input-group input-group-sm mb-2"></div>');
+                const row = $('<div class="input-group input-group-sm mb-1"></div>');
                 const label = $(`<span class="input-group-text">${labelText}</span>`);
                 row.append(label).append(inputEl);
                 return row;

@@ -27,7 +27,7 @@
 
         render(el) {
             $(el).append(this.container);
-            const dsRow = $('<div class="input-group input-group-sm mb-2"></div>');
+            const dsRow = $('<div class="input-group input-group-sm mb-1"></div>');
             dsRow.append('<span class="input-group-text">Datasource</span>', this.dsSelect);
             this.container.append(dsRow, this.toggleBtn, this.clearBtn);
             this.dsSelect.on('change', () => {
