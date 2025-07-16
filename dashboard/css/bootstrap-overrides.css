@@ -4,3 +4,8 @@ input.form-control,
 textarea.form-control {
   height: auto !important;
 }
+
+#modal_overlay .modal {
+  display: block;
+  position: absolute;
+}
