@@ -56,10 +56,7 @@
                         await pollData();
                         const data = {
                                 numeric_value: date.getTime(),
-                                full_string_value: date.toLocaleString(),
-                                date_string_value: date.toLocaleDateString(),
-                                time_string_value: date.toLocaleTimeString(),
-                                date_object: date
+                                full_string_value: date.toLocaleString()
                         };
                         latestData.forEach((val, idx) => {
                                 const key = `y${idx + 1}`;
