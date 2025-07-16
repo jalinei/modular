@@ -22,7 +22,7 @@
 
             const form = $('<div></div>');
 
-            const titleRow = $('<div class="mb-2"></div>');
+            const titleRow = $('<div class="mb-1"></div>');
             const titleLabel = $('<label class="form-label">Select Target Widget</label>');
             const titleSelect = $('<select class="form-select form-select-sm"></select>');
             this.controls.target_widget_title = titleSelect;
@@ -38,9 +38,9 @@
             form.append(titleRow);
 
             const createInput = (labelText, key, type = 'text') => {
-                const wrapper = $('<div class="input-group input-group-sm mb-2"></div>');
+                const wrapper = $('<div class="input-group input-group-sm mb-1"></div>');
                 const label = $(`<span class="input-group-text">${labelText}</span>`);
-                const input = $(`<input type="${type}" class="form-control">`);
+                const input = $(`<input type="${type}" class="form-control form-control-sm">`);
                 this.controls[key] = input;
                 wrapper.append(label).append(input);
                 return wrapper;
@@ -52,7 +52,7 @@
             form.append(createInput("Y Min", "yMin", "number"));
             form.append(createInput("Y Max", "yMax", "number"));
 
-            const legendWrapper = $('<div class="form-check form-switch mb-2"></div>');
+            const legendWrapper = $('<div class="form-check form-switch mb-1"></div>');
             const legendLabel = $('<label class="form-check-label">Show Legend</label>');
             const legendCheckbox = $('<input class="form-check-input" type="checkbox">');
             this.controls.showLegend = legendCheckbox;
