@@ -22,9 +22,12 @@
             this.timer = null;
             this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
             this.dsSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
-            this.colorCheck = $('<input class="form-check-input" type="checkbox">');
-            const colorWrapper = $('<div class="form-check form-switch mb-1"></div>');
-            colorWrapper.append(this.colorCheck).append('<label class="form-check-label">Colorize</label>');
+            const colorId = `chk_${Math.random().toString(36).slice(2)}`;
+            this.colorCheck = $('<input class="form-check-input mt-0" type="checkbox">').attr('id', colorId);
+            const colorWrapper = $('<div class="input-group input-group-sm mb-1"></div>');
+            const colorLabel = $(`<label class="input-group-text" for="${colorId}">Colorize</label>`);
+            const colorBox = $('<span class="input-group-text"></span>').append(this.colorCheck);
+            colorWrapper.append(colorLabel).append(colorBox);
             this.codeEl = $('<code></code>');
             this.preEl = $('<pre class="serial-terminal" style="overflow:auto; flex:1; margin:0;"></pre>').append(this.codeEl);
             const dsRow = $('<div class="input-group input-group-sm mb-1"></div>');
