@@ -1,0 +1,7 @@
+select.form-select,
+select.custom-select,
+input.form-control,
+textarea.form-control {
+  width: 100% !important;
+  height: auto !important;
+}

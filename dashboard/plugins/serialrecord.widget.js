@@ -85,13 +85,13 @@
             };
 
             const makeCheckRow = (labelText, checkEl) => {
-                const wrapper = $('<div class="mb-1"></div>');
-                wrapper.append(`<label class="form-label small">${labelText}</label>`);
-                const group = $('<div class="input-group input-group-sm"></div>');
-                const text = $('<div class="input-group-text"></div>').append(checkEl.addClass('mt-0 form-check-input'));
-                group.append(text);
-                wrapper.append(group);
-                return wrapper;
+                const row = $('<div class="input-group input-group-sm mb-1"></div>');
+                const id = `chk_${Math.random().toString(36).slice(2)}`;
+                checkEl.addClass('form-check-input mt-0').attr('id', id);
+                const label = $(`<label class="input-group-text" for="${id}">${labelText}</label>`);
+                const box = $('<span class="input-group-text"></span>').append(checkEl);
+                row.append(label).append(box);
+                return row;
             };
 
             this.orderSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
