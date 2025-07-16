@@ -21,13 +21,15 @@
             this.ipcRenderer = window.require?.("electron")?.ipcRenderer;
             this.timer = null;
             this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
-            this.dsSelect = $('<select class="form-select form-select-sm"></select>');
+            this.dsSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
             this.colorCheck = $('<input class="form-check-input" type="checkbox">');
             const colorWrapper = $('<div class="form-check form-switch mb-2"></div>');
             colorWrapper.append(this.colorCheck).append('<label class="form-check-label">Colorize</label>');
             this.codeEl = $('<code></code>');
             this.preEl = $('<pre class="serial-terminal" style="overflow:auto; flex:1; margin:0;"></pre>').append(this.codeEl);
-            this.container.append(this.dsSelect, colorWrapper, this.preEl);
+            const dsRow = $('<div class="input-group input-group-sm mb-2"></div>');
+            dsRow.append('<span class="input-group-text">Datasource</span>', this.dsSelect);
+            this.container.append(dsRow, colorWrapper, this.preEl);
             this._configHandler = () => this._refreshDatasourceOptions();
             freeboard.on && freeboard.on('config_updated', this._configHandler);
         }

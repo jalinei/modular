@@ -39,7 +39,7 @@
             this.settings = settings;
             this.ipcRenderer = window.require?.("electron")?.ipcRenderer;
             this.container = $('<div class="serial-command-buttons d-flex flex-column gap-2 overflow-auto"></div>');
-            this.dsSelect = $('<select class="form-select form-select-sm"></select>');
+            this.dsSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
             this.btnContainer = $('<div class="d-flex flex-wrap"></div>');
             this._configHandler = () => this._refreshDatasourceOptions();
             freeboard.on && freeboard.on('config_updated', this._configHandler);
@@ -47,7 +47,9 @@
 
         render(containerElement) {
             $(containerElement).append(this.container);
-            this.container.append(this.dsSelect, this.btnContainer);
+            const dsRow = $('<div class="input-group input-group-sm mb-2"></div>');
+            dsRow.append('<span class="input-group-text">Datasource</span>', this.dsSelect);
+            this.container.append(dsRow, this.btnContainer);
             this.dsSelect.on('change', () => {
                 this.settings.datasource = this.dsSelect.val();
             });
