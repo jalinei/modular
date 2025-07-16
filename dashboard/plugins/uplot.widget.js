@@ -35,15 +35,24 @@ class OwnTechPlotUPlot {
             this.ipc = window.require?.('electron')?.ipcRenderer;
             this.headers = [];
             this.datasourceName = '';
+            this.channelIndices = [];
             this.lastHeaderCheck = 0;
             this._detectDatasource();
         }
 
         _detectDatasource() {
             this.datasourceName = '';
+            this.channelIndices = [];
             if (typeof this.settings.data === 'string') {
-                const m = this.settings.data.match(/datasources\[["']([^"']+)["']\]/);
-                if (m) this.datasourceName = m[1];
+                const dsMatch = this.settings.data.match(/datasources\[["']([^"']+)["']\]/);
+                if (dsMatch) this.datasourceName = dsMatch[1];
+
+                const chanRe = /\["y(\d+)"\]/g;
+                let m;
+                while ((m = chanRe.exec(this.settings.data)) !== null) {
+                    const idx = parseInt(m[1], 10) - 1;
+                    if (!isNaN(idx)) this.channelIndices.push(idx);
+                }
             }
         }
 
@@ -82,7 +91,8 @@ class OwnTechPlotUPlot {
             if (!series) {
                 for (let i = 0; i < this.seriesCount; i++) {
                     const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
-                    const lbl = this.headers[i] || `Channel ${i + 1}`;
+                    const srcIdx = this.channelIndices[i] ?? i;
+                    const lbl = this.headers[srcIdx] || `Channel ${srcIdx + 1}`;
                     resolvedSeries.push({ label: lbl, stroke: color });
                 }
             }
@@ -166,7 +176,8 @@ class OwnTechPlotUPlot {
             const series = [{ label: "Time" }];
             for (let i = 0; i < this.seriesCount; i++) {
                 const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
-                const lbl = this.headers[i] || `Channel ${i + 1}`;
+                const srcIdx = this.channelIndices[i] ?? i;
+                const lbl = this.headers[srcIdx] || `Channel ${srcIdx + 1}`;
                 series.push({ label: lbl, stroke: color });
             }
 
