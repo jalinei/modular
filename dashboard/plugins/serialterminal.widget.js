@@ -29,7 +29,10 @@
             const colorBox = $('<span class="input-group-text"></span>').append(this.colorCheck);
             colorWrapper.append(colorLabel).append(colorBox);
             this.codeEl = $('<code></code>');
-            this.preEl = $('<pre class="serial-terminal" style="overflow:auto; flex:1; margin:0;"></pre>').append(this.codeEl);
+            this.preEl = $(
+                '<pre class="serial-terminal border border-secondary rounded bg-dark text-light p-2" ' +
+                'style="overflow:auto; flex:1; margin:0;"></pre>'
+            ).append(this.codeEl);
             const dsRow = $('<div class="input-group input-group-sm mb-1"></div>');
             dsRow.append('<span class="input-group-text">Datasource</span>', this.dsSelect);
             this.container.append(dsRow, colorWrapper, this.preEl);
