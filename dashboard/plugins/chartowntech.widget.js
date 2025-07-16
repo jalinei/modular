@@ -92,7 +92,7 @@
         constructor(settings) {
             this.settings = settings;
             this.chart = null;
-            this.container = $("<div class='owntech-plot' style='height:100%; width:100%; overflow-y: auto;'></div>");
+            this.container = $("<div class='owntech-plot h-100 w-100 overflow-auto'></div>");
         }
 
         render(containerElement) {
@@ -144,8 +144,8 @@
 
             // Add configuration table below chart
             const configHTML = `
-                <div class="chart-config-panel" style="margin-top: 10px;">
-                    <table style="width: 100%; font-size: 12px;" border="1" cellspacing="0" cellpadding="4">
+                <div class="chart-config-panel mt-2">
+                    <table class="table table-bordered table-sm mb-0">
                         <thead>
                             <tr>
                                 <th>Channel</th>
@@ -173,17 +173,17 @@
                 const row = $(`
                     <tr>
                         <td>Channel ${i + 1}</td>
-                        <td><input type="text" class="label-input" data-index="${i}" value="${ds.label}"/></td>
-                        <td><input type="color" class="color-input" data-index="${i}" value="${ds.borderColor}"/></td>
+                        <td><input type="text" class="form-control form-control-sm label-input" data-index="${i}" value="${ds.label}"/></td>
+                        <td><input type="color" class="form-control form-control-color form-control-sm color-input" data-index="${i}" value="${ds.borderColor}"/></td>
                         <td>
-                            <select class="axis-select" data-index="${i}">
+                            <select class="form-select form-select-sm axis-select" data-index="${i}">
                                 <option value="y" ${ds.yAxisID === "y" ? "selected" : ""}>Y</option>
                                 <option value="y2" ${ds.yAxisID === "y2" ? "selected" : ""}>Y2</option>
                             </select>
                         </td>
-                        <td><input type="checkbox" class="visible-check" data-index="${i}" ${ds.hidden ? "" : "checked"} /></td>
+                        <td class="text-center"><input type="checkbox" class="form-check-input visible-check" data-index="${i}" ${ds.hidden ? "" : "checked"} /></td>
                         <td>
-                            <select class="style-select" data-index="${i}">
+                            <select class="form-select form-select-sm style-select" data-index="${i}">
                                 ${Object.keys(lineStylesEnum).map(style =>
                                     `<option value="${style}" ${JSON.stringify(ds.borderDash) === JSON.stringify(lineStylesEnum[style]) ? "selected" : ""}>${style}</option>`
                                 ).join("")}

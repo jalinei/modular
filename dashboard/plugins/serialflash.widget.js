@@ -16,7 +16,7 @@
             this.settings = settings;
             this.ipc = window.require?.('electron')?.ipcRenderer;
             this.path = window.require?.('path');
-            this.container = $('<div class="d-flex flex-column h-100 gap-2"></div>');
+            this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
             this.portSelect = $('<select class="form-select form-select-sm"></select>');
             this.refreshBtn = $('<button class="btn btn-secondary btn-sm">Refresh Ports</button>');
             this.fileLabel = $('<span class="flex-fill text-truncate">No file selected</span>');

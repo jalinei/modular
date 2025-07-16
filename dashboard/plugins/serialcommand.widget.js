@@ -38,7 +38,7 @@
         constructor(settings) {
             this.settings = settings;
             this.ipcRenderer = window.require?.("electron")?.ipcRenderer;
-            this.container = $('<div class="serial-command-buttons d-flex flex-column gap-2"></div>');
+            this.container = $('<div class="serial-command-buttons d-flex flex-column gap-2 overflow-auto"></div>');
             this.dsSelect = $('<select class="form-select form-select-sm"></select>');
             this.btnContainer = $('<div class="d-flex flex-wrap"></div>');
             this._configHandler = () => this._refreshDatasourceOptions();
