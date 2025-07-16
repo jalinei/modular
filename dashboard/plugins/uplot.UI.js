@@ -22,9 +22,9 @@
 
             const form = $('<div></div>');
 
-            const titleRow = $('<div class="mb-1"></div>');
-            const titleLabel = $('<label class="form-label">Select Target Widget</label>');
-            const titleSelect = $('<select class="form-select form-select-sm"></select>');
+            const titleRow = $('<div class="input-group input-group-sm mb-1"></div>');
+            const titleLabel = $('<span class="input-group-text">Select Target Widget</span>');
+            const titleSelect = $('<select class="custom-select custom-select-sm"></select>');
             this.controls.target_widget_title = titleSelect;
 
             // Load settings only when user selects a widget manually

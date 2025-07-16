@@ -17,7 +17,7 @@
             this.ipc = window.require?.('electron')?.ipcRenderer;
             this.path = window.require?.('path');
             this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
-            this.portSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
+            this.portSelect = $('<select class="custom-select custom-select-sm flex-fill"></select>');
             this.refreshBtn = $('<button class="btn btn-secondary btn-sm">Refresh</button>');
             this.fileLabel = $('<input type="text" class="form-control form-control-sm" readonly value="No file selected">');
             this.fileBtn = $('<button class="btn btn-secondary btn-sm">Browse</button>');
