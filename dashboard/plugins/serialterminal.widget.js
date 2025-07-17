@@ -84,7 +84,7 @@
             return lines.map(line => {
                 const parts = line.trim().split(separator).filter(p => p !== "");
                 return parts.map((p, idx) => {
-                    const color = colors[idx] || `hsl(${(idx * 60) % 360}, 70%, 50%)`;
+                    const color = colors[idx] || (typeof ColorBlind10 !== "undefined" ? ColorBlind10[idx % ColorBlind10.length] : `hsl(${(idx * 60) % 360}, 70%, 50%)`);
                     return `<span style="color:${color}">${p}</span>`;
                 }).join(" ");
             });

@@ -292,8 +292,8 @@
                 const index = this.chart.data.datasets.length;
                 this.chart.data.datasets.push({
                     label: `Channel ${index + 1}`,
-                    borderColor: `hsl(${(index * 60) % 360}, 70%, 50%)`,
-                    backgroundColor: `hsla(${(index * 60) % 360}, 70%, 50%, 0.1)`,
+                    borderColor: (typeof ColorBlind10 !== "undefined" ? ColorBlind10[index % ColorBlind10.length] : `hsl(${(index * 60) % 360}, 70%, 50%)`),
+                    backgroundColor: (typeof ColorBlind10 !== "undefined" ? ColorBlind10[index % ColorBlind10.length] + "33" : `hsla(${(index * 60) % 360}, 70%, 50%, 0.1)`),
                     fill: false,
                     data: [],
                     borderDash: [],
