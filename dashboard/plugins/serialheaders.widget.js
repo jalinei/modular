@@ -16,7 +16,7 @@
                 display_name: "Color Palette",
                 type: "option",
                 options: Object.keys(colorThemes).map(k => ({ name: k, value: k })),
-                default_value: "Tableau20"
+                default_value: "ColorBlind10"
             }
         ],
         newInstance: function (settings, newInstanceCallback) {
