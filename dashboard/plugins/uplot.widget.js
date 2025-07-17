@@ -137,7 +137,7 @@ class OwnTechPlotUPlot {
             const chIdx = mapping.idx ?? this.channelIndices[idx] ?? idx;
             const colors = this.colorsByDs[ds] || [];
             if (colors[chIdx]) return colors[chIdx];
-            return `hsl(${(idx * 60) % 360}, 70%, 50%)`;
+            return (typeof ColorBlind10 !== "undefined" ? ColorBlind10[idx % ColorBlind10.length] : `hsl(${(idx * 60) % 360}, 70%, 50%)`);
         }
 
         render(containerElement) {
