@@ -23,7 +23,7 @@ jobs:
           node-version: '20'
       - run: npm ci
       - run: npm run dist -- --${{ matrix.target }}
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}-artifact
           path: |
@@ -34,7 +34,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           path: ./artifacts
       - uses: softprops/action-gh-release@v1
