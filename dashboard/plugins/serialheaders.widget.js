@@ -8,8 +8,8 @@
 
     freeboard.loadWidgetPlugin({
         type_name: "serial_header_editor",
-        display_name: "Serial Header Editor",
-        description: "Edit header labels for a serial datasource",
+        display_name: "Label and color editor",
+        description: "Edit header labels for a datasource",
         settings: [],
         newInstance: function (settings, newInstanceCallback) {
             newInstanceCallback(new SerialHeaderEditor(settings));

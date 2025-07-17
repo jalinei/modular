@@ -1,8 +1,8 @@
 (function () {
     freeboard.loadWidgetPlugin({
         type_name: "uplot_config_panel",
-        display_name: "uPlot Config Panel",
-        description: "Control panel to adjust settings of uPlot widgets",
+        display_name: "Plot UI controller",
+        description: "Control panel to adjust plot settings",
         settings: [],
         newInstance: function (settings, newInstanceCallback) {
             newInstanceCallback(new UPlotConfigPanel(settings));
