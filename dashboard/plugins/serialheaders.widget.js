@@ -1,9 +1,24 @@
 (function () {
+    const colorThemes = {
+        ColorBlind10: ColorBlind10,
+        OfficeClassic6: OfficeClassic6,
+        HueCircle19: HueCircle19,
+        Tableau20: Tableau20
+    };
+
     freeboard.loadWidgetPlugin({
         type_name: "serial_header_editor",
         display_name: "Serial Header Editor",
         description: "Edit header labels for a serial datasource",
-        settings: [],
+        settings: [
+            {
+                name: "palette",
+                display_name: "Color Palette",
+                type: "option",
+                options: Object.keys(colorThemes).map(k => ({ name: k, value: k })),
+                default_value: "Tableau20"
+            }
+        ],
         newInstance: function (settings, newInstanceCallback) {
             newInstanceCallback(new SerialHeaderEditor(settings));
         }
@@ -15,6 +30,10 @@
             this.ipc = window.require?.("electron")?.ipcRenderer;
             this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
             this.dsSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
+            this.paletteSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
+            Object.keys(colorThemes).forEach(k => {
+                this.paletteSelect.append(`<option value="${k}">${k}</option>`);
+            });
             this.rowsWrap = $('<div class="flex-fill overflow-auto"></div>');
             this.rows = $('<div class="d-flex flex-column"></div>');
             this.rowsWrap.append(this.rows);
@@ -28,18 +47,25 @@
             $(el).append(this.container);
             const dsRow = $('<div class="input-group input-group-sm mb-1"></div>');
             dsRow.append('<span class="input-group-text">Datasource</span>', this.dsSelect);
+            const palRow = $('<div class="input-group input-group-sm mb-1"></div>');
+            palRow.append('<span class="input-group-text">Colors</span>', this.paletteSelect);
             const btnRow = $('<div class="d-flex gap-1"></div>').append(this.addBtn, this.saveBtn);
-            this.container.append(dsRow, this.rowsWrap, btnRow);
+            this.container.append(dsRow, palRow, this.rowsWrap, btnRow);
            this.addBtn.on('click', () => this._addRow());
             this.saveBtn.on('click', () => this._save());
             this.dsSelect.on('change', () => {
                 this.settings.datasource = this.dsSelect.val();
                 this._loadHeaders();
             });
+            this.paletteSelect.on('change', () => {
+                this.settings.palette = this.paletteSelect.val();
+                this._applyPalette();
+            });
             this._refreshDatasourceOptions();
             if (this.settings.datasource) {
                 this.dsSelect.val(this.settings.datasource);
             }
+            this.paletteSelect.val(this.settings.palette || 'Tableau20');
             this._loadHeaders();
         }
 
@@ -63,7 +89,8 @@
         }
 
         _defaultColor(idx) {
-            return `hsl(${(idx * 60) % 360}, 70%, 50%)`;
+            const pal = colorThemes[this.settings.palette] || colorThemes.Tableau20;
+            return pal[idx % pal.length];
         }
 
         _addRow(label = '', color = null) {
@@ -84,6 +111,13 @@
         _renumber() {
             this.rows.children().each((i, row) => {
                 $(row).children('.input-group-text').first().text(i + 1);
+            });
+        }
+
+        _applyPalette() {
+            const pal = colorThemes[this.settings.palette] || colorThemes.Tableau20;
+            this.rows.children().each((i, row) => {
+                $(row).find("input[type='color']").val(pal[i % pal.length]);
             });
         }
 
@@ -117,6 +151,7 @@
 
             headers.forEach((h, i) => this._addRow(h, colors[i]));
             if (headers.length === 0) this._addRow();
+            this._applyPalette();
         }
 
         async _save() {
@@ -169,6 +204,7 @@
             if (this.settings.datasource) {
                 this.dsSelect.val(this.settings.datasource);
             }
+            this.paletteSelect.val(this.settings.palette || 'Tableau20');
             this._loadHeaders();
         }
 
