@@ -16,6 +16,7 @@ const openPorts = new Map(); // key: path, value: SerialPort instance
 const terminalBuffers = new Map(); // key: path, value: array of raw lines
 const serialBuffers = new Map(); // key: path, value: array of parsed data arrays
 const headerBuffers = new Map(); // key: path, value: array of header labels
+const colorBuffers = new Map(); // key: path, value: array of color strings
 const MAX_BUFFER_SIZE = 1000;
 const MAX_TERMINAL_LINES = 200;
 
@@ -106,6 +107,7 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
         terminalBuffers.set(path, []);
         serialBuffers.set(path, []);
         headerBuffers.set(path, []);
+        colorBuffers.set(path, []);
 
 	port.on("data", chunk => {
 			rawBuffer += chunk.toString();
@@ -131,6 +133,7 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
                         terminalBuffers.delete(path);
                         serialBuffers.delete(path);
                         headerBuffers.delete(path);
+                        colorBuffers.delete(path);
         });
 
 	openPorts.set(path, port);
@@ -158,6 +161,17 @@ ipcMain.handle('set-serial-headers', (_event, { path, headers }) => {
     return 'ok';
 });
 
+// 🎨 Get/set colors for a port
+ipcMain.handle('get-serial-colors', (_event, { path }) => {
+    return colorBuffers.get(path) || [];
+});
+
+ipcMain.handle('set-serial-colors', (_event, { path, colors }) => {
+    if (!Array.isArray(colors)) colors = [];
+    colorBuffers.set(path, colors);
+    return 'ok';
+});
+
 // ❌ Close port
 ipcMain.handle("close-serial-port", async (event, { path }) => {
 	const port = openPorts.get(path);
@@ -169,8 +183,9 @@ ipcMain.handle("close-serial-port", async (event, { path }) => {
                                                         terminalBuffers.delete(path);
                                                         serialBuffers.delete(path);
                                                         headerBuffers.delete(path);
+                                                        colorBuffers.delete(path);
                                                         resolve("closed");
-					});
+                                        });
 			});
 	} else {
 			return "not open";
@@ -342,6 +357,7 @@ ipcMain.handle('flush-serial-buffers', async (_event, { path }) => {
     terminalBuffers.set(path, []);
     serialBuffers.set(path, []);
     headerBuffers.set(path, []);
+    colorBuffers.set(path, []);
     return 'flushed';
 });
 

@@ -18,7 +18,7 @@
             this.tableWrap = $('<div class="flex-fill overflow-auto"></div>');
             this.table = $(
                 '<table class="table table-bordered table-sm mb-0" style="table-layout:fixed;">' +
-                '<thead><tr><th style="width:30px">#</th><th>Label</th><th style="width:30px"></th></tr></thead>' +
+                '<thead><tr><th style="width:30px">#</th><th>Label</th><th>Color</th><th style="width:30px"></th></tr></thead>' +
                 '<tbody></tbody></table>'
             );
             this.addBtn = $('<button class="btn btn-secondary btn-sm">Add Field</button>');
@@ -56,13 +56,15 @@
             this.table.find('tbody').empty();
         }
 
-        _addRow(label = '') {
+        _addRow(label = '', color = '#ff0000') {
             const tbody = this.table.find('tbody');
             const idx = tbody.children().length + 1;
             const row = $('<tr></tr>');
             row.append(`<td>${idx}</td>`);
             const input = $(`<input type="text" class="form-control form-control-sm" value="${label}">`);
             row.append($('<td></td>').append(input));
+            const colorInput = $(`<input type="color" value="${color}" style="width:100%; box-sizing:border-box;">`);
+            row.append($('<td></td>').append(colorInput));
             const del = $('<button class="btn btn-danger btn-sm py-0 px-1">✕</button>')
                 .on('click', () => { row.remove(); this._renumber(); });
             row.append($('<td></td>').append(del));
@@ -80,28 +82,40 @@
             if (!this.settings.datasource) return;
             const dsSettings = freeboard.getDatasourceSettings(this.settings.datasource) || {};
             let headers = [];
+            let colors = [];
             if (this.ipc) {
                 try {
                     const path = await this._getPortPath();
                     headers = await this.ipc.invoke('get-serial-headers', { path });
+                    colors = await this.ipc.invoke('get-serial-colors', { path });
                 } catch (e) { /* ignore */ }
             }
             if (!Array.isArray(headers) || !headers.length) {
                 if (Array.isArray(dsSettings.headers)) {
                     headers = dsSettings.headers.map(h => h.label);
+                    colors = dsSettings.headers.map(h => h.color || '#ff0000');
                 } else if (typeof dsSettings.headers === 'string') {
                     headers = dsSettings.headers.split(/[,;]+/).map(h => h.trim()).filter(Boolean);
                 }
             }
-            headers.forEach(h => this._addRow(h));
-            if (headers.length === 0) this._addRow('');
+            if (!Array.isArray(colors) || colors.length === 0) {
+                colors = Array(headers.length).fill('#ff0000');
+            }
+            headers.forEach((h, i) => this._addRow(h, colors[i] || '#ff0000'));
+            if (headers.length === 0) this._addRow('', '#ff0000');
         }
 
         async _save() {
             if (!this.settings.datasource) return;
-            const labels = this.table.find('tbody input').map((_, el) => $(el).val().trim()).get();
+            const rows = this.table.find('tbody tr');
+            const labels = [];
+            const colors = [];
+            rows.each((_, row) => {
+                labels.push($(row).find('input[type="text"]').val().trim());
+                colors.push($(row).find('input[type="color"]').val() || '#ff0000');
+            });
             const clean = labels.filter(l => l);
-            const newHeaders = clean.map(l => ({ label: l }));
+            const newHeaders = labels.map((l, i) => ({ label: l, color: colors[i] }));
             const dsSettings = freeboard.getDatasourceSettings(this.settings.datasource) || {};
             if (typeof freeboard.setDatasourceSettings === 'function') {
                 freeboard.setDatasourceSettings(this.settings.datasource, { headers: newHeaders });
@@ -110,6 +124,7 @@
                 try {
                     const path = await this._getPortPath();
                     await this.ipc.invoke('set-serial-headers', { path, headers: clean });
+                    await this.ipc.invoke('set-serial-colors', { path, colors });
                 } catch (e) { console.error('Failed to set headers', e); }
             }
         }
