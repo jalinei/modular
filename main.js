@@ -213,7 +213,7 @@ ipcMain.handle("write-serial-port", async (event, { path, data }) => {
 
 // 📂 Start CSV recording for a given port
 ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eol, order = 'old', addHeader = true, timestampMode = 'none' }) => {
-		const port = openPorts.get(path);
+        const port = openPorts.get(path);
         if (!port) {
                 throw new Error('port not open');
         }
@@ -222,10 +222,7 @@ ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eo
         }
         const sep = separator || ',';
         const eolStr = eol ? JSON.parse(`"${eol}"`) : '\n';
-        if (!headers || headers.length === 0) {
-                headers = headerBuffers.get(path) || [];
-        }
-        headerBuffers.set(path, headers);
+        const headers = headerBuffers.get(path) || [];
         const recording = {
                 order,
                 addHeader,
@@ -238,7 +235,8 @@ ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eo
                 headerWritten: false,
                 filePath,
                 sep,
-                eolStr
+                eolStr,
+                headers
         };
 
         if (order === 'old') {
@@ -260,7 +258,8 @@ ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eo
                                         header.push(timestampMode === 'relative' ? 'time_ms' : 'timestamp');
                                 }
                                 for (let i = 0; i < values.length; i++) {
-                                        header.push(`ch${i + 1}`);
+                                        const label = recording.headers[i] || `ch${i + 1}`;
+                                        header.push(label);
                                 }
                                 const headerLine = header.join(',');
                                 if (order === 'old') {
