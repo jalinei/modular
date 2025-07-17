@@ -33,7 +33,8 @@ class OwnTechPlotUPlot {
             this.lastRender = 0;
 
             this.ipc = window.require?.('electron')?.ipcRenderer;
-            this.headers = [];
+            this.headersByDs = {};
+            this.dsMap = [];
             this.datasourceName = '';
             this.channelIndices = [];
             this.lastHeaderCheck = 0;
@@ -43,23 +44,34 @@ class OwnTechPlotUPlot {
         _detectDatasource() {
             this.datasourceName = '';
             this.channelIndices = [];
+            this.dsMap = [];
             if (typeof this.settings.data === 'string') {
-                const dsMatch = this.settings.data.match(/datasources\[["']([^"']+)["']\]/);
-                if (dsMatch) this.datasourceName = dsMatch[1];
-
-                const chanRe = /\["y(\d+)"\]/g;
+                const pattern = /datasources\["([^"\]]+)"\]\["y(\d+)"\]/g;
                 let m;
-                while ((m = chanRe.exec(this.settings.data)) !== null) {
-                    const idx = parseInt(m[1], 10) - 1;
-                    if (!isNaN(idx)) this.channelIndices.push(idx);
+                while ((m = pattern.exec(this.settings.data)) !== null) {
+                    const ds = m[1];
+                    const idx = parseInt(m[2], 10) - 1;
+                    this.dsMap.push({ ds, idx });
+                }
+                if (this.dsMap.length) {
+                    this.datasourceName = this.dsMap[0].ds;
+                    this.channelIndices = this.dsMap.map(d => d.idx);
+                } else {
+                    const dsMatch = this.settings.data.match(/datasources\[["']([^"']+)["']\]/);
+                    if (dsMatch) this.datasourceName = dsMatch[1];
+                    const chanRe = /\["y(\d+)"\]/g;
+                    while ((m = chanRe.exec(this.settings.data)) !== null) {
+                        const idx = parseInt(m[1], 10) - 1;
+                        if (!isNaN(idx)) this.channelIndices.push(idx);
+                    }
                 }
             }
         }
 
-        async _fetchHeaders() {
-            if (!this.ipc || !this.datasourceName) return [];
-            const dsSettings = freeboard.getDatasourceSettings(this.datasourceName) || {};
-            const path = dsSettings.portPath || this.datasourceName;
+        async _fetchHeaders(dsName) {
+            if (!this.ipc || !dsName) return [];
+            const dsSettings = freeboard.getDatasourceSettings(dsName) || {};
+            const path = dsSettings.portPath || dsName;
             try {
                 const headers = await this.ipc.invoke('get-serial-headers', { path });
                 return Array.isArray(headers) ? headers : [];
@@ -73,11 +85,28 @@ class OwnTechPlotUPlot {
             const now = Date.now();
             if (!force && now - this.lastHeaderCheck < 1000) return;
             this.lastHeaderCheck = now;
-            const hdrs = await this._fetchHeaders();
-            if (!_.isEqual(hdrs, this.headers)) {
-                this.headers = hdrs;
-                if (this.plot) this._resetPlot();
+
+            const uniqueDs = [...new Set(this.dsMap.map(d => d.ds || this.datasourceName))];
+            let changed = false;
+            for (const ds of uniqueDs) {
+                if (!ds) continue;
+                const hdrs = await this._fetchHeaders(ds);
+                if (!_.isEqual(hdrs, this.headersByDs[ds])) {
+                    this.headersByDs[ds] = hdrs;
+                    changed = true;
+                }
             }
+
+            if (changed && this.plot) this._resetPlot();
+        }
+
+        _getSeriesLabel(idx) {
+            const mapping = this.dsMap[idx] || {};
+            const ds = mapping.ds ?? this.datasourceName;
+            const chIdx = mapping.idx ?? this.channelIndices[idx] ?? idx;
+            const headers = this.headersByDs[ds] || [];
+            if (headers[chIdx]) return headers[chIdx];
+            return `Channel ${chIdx + 1}`;
         }
 
         render(containerElement) {
@@ -91,8 +120,7 @@ class OwnTechPlotUPlot {
             if (!series) {
                 for (let i = 0; i < this.seriesCount; i++) {
                     const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
-                    const srcIdx = this.channelIndices[i] ?? i;
-                    const lbl = this.headers[srcIdx] || `Channel ${srcIdx + 1}`;
+                    const lbl = this._getSeriesLabel(i);
                     resolvedSeries.push({ label: lbl, stroke: color });
                 }
             }
@@ -176,8 +204,7 @@ class OwnTechPlotUPlot {
             const series = [{ label: "Time" }];
             for (let i = 0; i < this.seriesCount; i++) {
                 const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
-                const srcIdx = this.channelIndices[i] ?? i;
-                const lbl = this.headers[srcIdx] || `Channel ${srcIdx + 1}`;
+                const lbl = this._getSeriesLabel(i);
                 series.push({ label: lbl, stroke: color });
             }
 
