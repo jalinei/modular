@@ -22,7 +22,7 @@
         }
     });
 
-    class OwnTechPlotUPlot {
+class OwnTechPlotUPlot {
         constructor(settings) {
             this.settings = settings;
             this.container = $('<div class="w-100 h-100 overflow-auto"></div>');
@@ -31,11 +31,88 @@
             this.dataBuffer = [[], []]; // [timestamps, [series1, series2, ...]]
             this.maxPoints = 2000;
             this.lastRender = 0;
+
+            this.ipc = window.require?.('electron')?.ipcRenderer;
+            this.headersByDs = {};
+            this.dsMap = [];
+            this.datasourceName = '';
+            this.channelIndices = [];
+            this.lastHeaderCheck = 0;
+            this._detectDatasource();
+        }
+
+        _detectDatasource() {
+            this.datasourceName = '';
+            this.channelIndices = [];
+            this.dsMap = [];
+            if (typeof this.settings.data === 'string') {
+                const pattern = /datasources\["([^"\]]+)"\]\["y(\d+)"\]/g;
+                let m;
+                while ((m = pattern.exec(this.settings.data)) !== null) {
+                    const ds = m[1];
+                    const idx = parseInt(m[2], 10) - 1;
+                    this.dsMap.push({ ds, idx });
+                }
+                if (this.dsMap.length) {
+                    this.datasourceName = this.dsMap[0].ds;
+                    this.channelIndices = this.dsMap.map(d => d.idx);
+                } else {
+                    const dsMatch = this.settings.data.match(/datasources\[["']([^"']+)["']\]/);
+                    if (dsMatch) this.datasourceName = dsMatch[1];
+                    const chanRe = /\["y(\d+)"\]/g;
+                    while ((m = chanRe.exec(this.settings.data)) !== null) {
+                        const idx = parseInt(m[1], 10) - 1;
+                        if (!isNaN(idx)) this.channelIndices.push(idx);
+                    }
+                }
+            }
+        }
+
+        async _fetchHeaders(dsName) {
+            if (!this.ipc || !dsName) return [];
+            const dsSettings = freeboard.getDatasourceSettings(dsName) || {};
+            const path = dsSettings.portPath || dsName;
+            try {
+                const headers = await this.ipc.invoke('get-serial-headers', { path });
+                return Array.isArray(headers) ? headers : [];
+            } catch (e) {
+                console.error('header fetch failed', e);
+                return [];
+            }
+        }
+
+        async _maybeUpdateHeaders(force = false) {
+            const now = Date.now();
+            if (!force && now - this.lastHeaderCheck < 1000) return;
+            this.lastHeaderCheck = now;
+
+            const uniqueDs = [...new Set(this.dsMap.map(d => d.ds || this.datasourceName))];
+            let changed = false;
+            for (const ds of uniqueDs) {
+                if (!ds) continue;
+                const hdrs = await this._fetchHeaders(ds);
+                if (!_.isEqual(hdrs, this.headersByDs[ds])) {
+                    this.headersByDs[ds] = hdrs;
+                    changed = true;
+                }
+            }
+
+            if (changed && this.plot) this._resetPlot();
+        }
+
+        _getSeriesLabel(idx) {
+            const mapping = this.dsMap[idx] || {};
+            const ds = mapping.ds ?? this.datasourceName;
+            const chIdx = mapping.idx ?? this.channelIndices[idx] ?? idx;
+            const headers = this.headersByDs[ds] || [];
+            if (headers[chIdx]) return headers[chIdx];
+            return `Channel ${chIdx + 1}`;
         }
 
         render(containerElement) {
             this.container.appendTo(containerElement);
             this._initPlot();
+            this._maybeUpdateHeaders(true);
         }
 
         _initPlot(series = null) {
@@ -43,7 +120,8 @@
             if (!series) {
                 for (let i = 0; i < this.seriesCount; i++) {
                     const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
-                    resolvedSeries.push({ label: `Channel ${i + 1}`, stroke: color });
+                    const lbl = this._getSeriesLabel(i);
+                    resolvedSeries.push({ label: lbl, stroke: color });
                 }
             }
 
@@ -126,7 +204,8 @@
             const series = [{ label: "Time" }];
             for (let i = 0; i < this.seriesCount; i++) {
                 const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
-                series.push({ label: `Channel ${i + 1}`, stroke: color });
+                const lbl = this._getSeriesLabel(i);
+                series.push({ label: lbl, stroke: color });
             }
 
             this.dataBuffer = [[], ...Array(this.seriesCount).fill().map(() => [])];
@@ -143,6 +222,8 @@
             const titleChanged = newSettings.title !== this.settings.title;
 
             this.settings = newSettings;
+            this._detectDatasource();
+            this._maybeUpdateHeaders(true);
 
             if (needsReset && this.plot) {
                 this._resetPlot();
@@ -157,6 +238,7 @@
         }
 
         onCalculatedValueChanged(settingName, newValue) {
+            this._maybeUpdateHeaders();
             if (!newValue) return;
 
             let yValues = [];
