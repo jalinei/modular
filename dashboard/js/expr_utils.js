@@ -1,18 +1,35 @@
 (function(){
-    const buffers = new WeakMap();
-    function getBuffer(fn){
-        let buf = buffers.get(fn);
+    const buffers = new Map();
+
+    function getKey(){
+        const err = new Error();
+        if(err.stack){
+            const lines = err.stack.split("\n");
+            // When called from mean() via this helper, the caller is
+            // three frames up the stack.
+            if(lines.length >= 4){
+                return lines[3].trim();
+            } else if(lines.length >= 3){
+                return lines[2].trim();
+            }
+        }
+        return window.mean.caller || arguments.callee.caller;
+    }
+
+    function getBuffer(key){
+        let buf = buffers.get(key);
         if(!buf){
             buf = [];
-            buffers.set(fn, buf);
+            buffers.set(key, buf);
         }
         return buf;
     }
+
     window.mean = function(value, windowSize){
         windowSize = parseInt(windowSize);
         if(isNaN(windowSize) || windowSize <= 0) windowSize = 10;
-        const caller = window.mean.caller || arguments.callee.caller;
-        const buffer = getBuffer(caller || window.mean);
+        const key = getKey();
+        const buffer = getBuffer(key);
         buffer.push(value);
         if(buffer.length > windowSize){
             buffer.shift();
