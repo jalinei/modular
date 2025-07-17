@@ -20,6 +20,8 @@
             this.settings = settings;
             this.ipcRenderer = window.require?.("electron")?.ipcRenderer;
             this.timer = null;
+            this.colors = [];
+            this.lastColorCheck = 0;
             this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
             this.dsSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
             const colorId = `chk_${Math.random().toString(36).slice(2)}`;
@@ -45,12 +47,14 @@
             this._refreshDatasourceOptions();
             this.dsSelect.on('change', () => {
                 this.settings.datasourceName = this.dsSelect.val();
+                this._refreshColors(true);
             });
             this.colorCheck.on('change', () => {
                 this.settings.colorize = this.colorCheck.prop('checked');
             });
             this.colorCheck.prop('checked', !!this.settings.colorize);
             this.dsSelect.val(this.settings.datasourceName);
+            this._refreshColors(true);
             this._updateTimer();
         }
 
@@ -58,13 +62,14 @@
             if (!this.ipcRenderer || !this.settings.datasourceName) return;
             const ds = freeboard.getDatasourceSettings(this.settings.datasourceName);
             if (!ds || !ds.portPath) return;
+            await this._refreshColors();
             try {
                 const lines = await this.ipcRenderer.invoke("get-terminal-buffer", { path: ds.portPath });
                 if (Array.isArray(lines)) {
                     const max = parseInt(this.settings.maxLines) || 100;
                     const display = lines.slice(-max);
                     if (this.settings.colorize !== false) {
-                        const formatted = this._formatLines(display, ds.separator || ":");
+                        const formatted = this._formatLines(display, ds.separator || ":", this.colors);
                         this.codeEl.html(formatted.join("<br/>"));
                     } else {
                         this.codeEl.text(display.join("\n"));
@@ -75,14 +80,38 @@
             }
         }
 
-        _formatLines(lines, separator) {
+        _formatLines(lines, separator, colors = []) {
             return lines.map(line => {
                 const parts = line.trim().split(separator).filter(p => p !== "");
                 return parts.map((p, idx) => {
-                    const color = `hsl(${(idx * 60) % 360}, 70%, 50%)`;
+                    const color = colors[idx] || `hsl(${(idx * 60) % 360}, 70%, 50%)`;
                     return `<span style="color:${color}">${p}</span>`;
                 }).join(" ");
             });
+        }
+
+        async _refreshColors(force = false) {
+            const now = Date.now();
+            if (!force && now - this.lastColorCheck < 1000) return;
+            this.lastColorCheck = now;
+            if (!this.ipcRenderer || !this.settings.datasourceName) {
+                this.colors = [];
+                return;
+            }
+            const ds = freeboard.getDatasourceSettings(this.settings.datasourceName) || {};
+            const path = ds.portPath || this.settings.datasourceName;
+            try {
+                const fetched = await this.ipcRenderer.invoke('get-serial-colors', { path });
+                if (Array.isArray(fetched) && fetched.length) {
+                    this.colors = fetched;
+                    return;
+                }
+            } catch (e) { /* ignore */ }
+            if (Array.isArray(ds.headers)) {
+                this.colors = ds.headers.map(h => h.color || null);
+            } else {
+                this.colors = [];
+            }
         }
 
         _refreshDatasourceOptions() {
@@ -116,6 +145,7 @@
             this.colorCheck.prop('checked', !!this.settings.colorize);
             this._refreshDatasourceOptions();
             this.dsSelect.val(this.settings.datasourceName);
+            this._refreshColors(true);
             this._updateTimer();
         }
 
