@@ -10,15 +10,7 @@
         type_name: "serial_header_editor",
         display_name: "Serial Header Editor",
         description: "Edit header labels for a serial datasource",
-        settings: [
-            {
-                name: "palette",
-                display_name: "Color Palette",
-                type: "option",
-                options: Object.keys(colorThemes).map(k => ({ name: k, value: k })),
-                default_value: "ColorBlind10"
-            }
-        ],
+        settings: [],
         newInstance: function (settings, newInstanceCallback) {
             newInstanceCallback(new SerialHeaderEditor(settings));
         }
@@ -65,7 +57,7 @@
             if (this.settings.datasource) {
                 this.dsSelect.val(this.settings.datasource);
             }
-            this.paletteSelect.val(this.settings.palette || 'Tableau20');
+            this.paletteSelect.val(this.settings.palette || 'ColorBlind10');
             this._loadHeaders();
         }
 
@@ -89,7 +81,7 @@
         }
 
         _defaultColor(idx) {
-            const pal = colorThemes[this.settings.palette] || colorThemes.Tableau20;
+            const pal = colorThemes[this.settings.palette] || colorThemes.ColorBlind10;
             return pal[idx % pal.length];
         }
 
@@ -115,7 +107,7 @@
         }
 
         _applyPalette() {
-            const pal = colorThemes[this.settings.palette] || colorThemes.Tableau20;
+            const pal = colorThemes[this.settings.palette] || colorThemes.ColorBlind10;
             this.rows.children().each((i, row) => {
                 $(row).find("input[type='color']").val(pal[i % pal.length]);
             });
@@ -204,7 +196,7 @@
             if (this.settings.datasource) {
                 this.dsSelect.val(this.settings.datasource);
             }
-            this.paletteSelect.val(this.settings.palette || 'Tableau20');
+            this.paletteSelect.val(this.settings.palette || 'ColorBlind10');
             this._loadHeaders();
         }
 
