@@ -48,17 +48,32 @@
             return dsSettings.portPath || this.settings.datasource;
         }
 
+        async _getChannelCount() {
+            if (!this.ipc || !this.settings.datasource) return 0;
+            try {
+                const path = await this._getPortPath();
+                const data = await this.ipc.invoke('get-serial-buffer', { path });
+                if (Array.isArray(data)) return data.length;
+            } catch (e) { /* ignore */ }
+            return 0;
+        }
+
         _clearRows() {
             this.rows.empty();
         }
 
-        _addRow(label = '', color = '#ff0000') {
+        _defaultColor(idx) {
+            return `hsl(${(idx * 60) % 360}, 70%, 50%)`;
+        }
+
+        _addRow(label = '', color = null) {
             const idx = this.rows.children().length + 1;
+            const clr = color || this._defaultColor(idx - 1);
             const row = $('<div class="input-group input-group-sm mb-1"></div>');
             row.append(`<span class="input-group-text">${idx}</span>`);
             const input = $(`<input type="text" class="form-control" value="${label}">`);
             row.append(input);
-            const colorInput = $(`<input type="color" class="form-control form-control-color" value="${color}" title="Choose color">`);
+            const colorInput = $(`<input type="color" class="form-control form-control-color" value="${clr}" title="Choose color">`);
             row.append(colorInput);
             const del = $('<button class="btn btn-danger" type="button">✕</button>')
                 .on('click', () => { row.remove(); this._renumber(); });
@@ -88,16 +103,20 @@
             if (!Array.isArray(headers) || !headers.length) {
                 if (Array.isArray(dsSettings.headers)) {
                     headers = dsSettings.headers.map(h => h.label);
-                    colors = dsSettings.headers.map(h => h.color || '#ff0000');
+                    colors = dsSettings.headers.map(h => h.color || null);
                 } else if (typeof dsSettings.headers === 'string') {
                     headers = dsSettings.headers.split(/[,;]+/).map(h => h.trim()).filter(Boolean);
                 }
             }
-            if (!Array.isArray(colors) || colors.length === 0) {
-                colors = Array(headers.length).fill('#ff0000');
-            }
-            headers.forEach((h, i) => this._addRow(h, colors[i] || '#ff0000'));
-            if (headers.length === 0) this._addRow('', '#ff0000');
+            if (!Array.isArray(colors)) colors = [];
+
+            const chanCount = await this._getChannelCount();
+            const required = Math.max(chanCount, headers.length);
+            for (let i = headers.length; i < required; i++) headers.push('');
+            for (let i = colors.length; i < required; i++) colors.push(null);
+
+            headers.forEach((h, i) => this._addRow(h, colors[i]));
+            if (headers.length === 0) this._addRow();
         }
 
         async _save() {
