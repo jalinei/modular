@@ -13,19 +13,26 @@
         constructor(settings) {
             this.settings = settings;
             this.ipc = window.require?.("electron")?.ipcRenderer;
-            this.container = $('<div style="display:flex; flex-direction:column; gap:4px; height:100%; overflow:hidden;"></div>');
-            this.dsSelect = $('<select style="width:100%; box-sizing:border-box;"></select>');
-            this.tableWrap = $('<div style="flex:1; overflow:auto;"></div>');
-            this.table = $('<table style="width:100%; font-size:12px; table-layout:fixed;" border="1" cellspacing="0" cellpadding="4"><thead><tr><th style=\"width:30px\">#</th><th>Label</th><th style=\"width:30px\"></th></tr></thead><tbody></tbody></table>');
-            this.addBtn = $('<button>Add Field</button>');
-            this.saveBtn = $('<button>Save</button>');
+            this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
+            this.dsSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
+            this.tableWrap = $('<div class="flex-fill overflow-auto"></div>');
+            this.table = $(
+                '<table class="table table-bordered table-sm mb-0" style="table-layout:fixed;">' +
+                '<thead><tr><th style="width:30px">#</th><th>Label</th><th style="width:30px"></th></tr></thead>' +
+                '<tbody></tbody></table>'
+            );
+            this.addBtn = $('<button class="btn btn-secondary btn-sm">Add Field</button>');
+            this.saveBtn = $('<button class="btn btn-primary btn-sm">Save</button>');
             this._configHandler = () => this._refreshDatasourceOptions();
             freeboard.on && freeboard.on('config_updated', this._configHandler);
         }
 
         render(el) {
             $(el).append(this.container);
-            this.container.append(this.dsSelect, this.tableWrap, this.addBtn, this.saveBtn);
+            const dsRow = $('<div class="input-group input-group-sm mb-1"></div>');
+            dsRow.append('<span class="input-group-text">Datasource</span>', this.dsSelect);
+            const btnRow = $('<div class="d-flex gap-1"></div>').append(this.addBtn, this.saveBtn);
+            this.container.append(dsRow, this.tableWrap, btnRow);
             this.tableWrap.append(this.table);
             this.addBtn.on('click', () => this._addRow());
             this.saveBtn.on('click', () => this._save());
@@ -54,9 +61,9 @@
             const idx = tbody.children().length + 1;
             const row = $('<tr></tr>');
             row.append(`<td>${idx}</td>`);
-            const input = $(`<input type="text" style="width:100%; box-sizing:border-box;" value="${label}">`);
+            const input = $(`<input type="text" class="form-control form-control-sm" value="${label}">`);
             row.append($('<td></td>').append(input));
-            const del = $('<button>✕</button>').on('click', () => { row.remove(); this._renumber(); });
+            const del = $('<button class="btn btn-danger btn-sm">✕</button>').on('click', () => { row.remove(); this._renumber(); });
             row.append($('<td></td>').append(del));
             tbody.append(row);
         }
