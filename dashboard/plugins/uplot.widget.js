@@ -34,6 +34,7 @@ class OwnTechPlotUPlot {
 
             this.ipc = window.require?.('electron')?.ipcRenderer;
             this.headersByDs = {};
+            this.colorsByDs = {};
             this.dsMap = [];
             this.datasourceName = '';
             this.channelIndices = [];
@@ -81,6 +82,22 @@ class OwnTechPlotUPlot {
             }
         }
 
+        async _fetchColors(dsName) {
+            if (!this.ipc || !dsName) return [];
+            const dsSettings = freeboard.getDatasourceSettings(dsName) || {};
+            const path = dsSettings.portPath || dsName;
+            try {
+                const colors = await this.ipc.invoke('get-serial-colors', { path });
+                if (Array.isArray(colors) && colors.length) return colors;
+            } catch (e) {
+                console.error('color fetch failed', e);
+            }
+            if (Array.isArray(dsSettings.headers)) {
+                return dsSettings.headers.map(h => h.color || null);
+            }
+            return [];
+        }
+
         async _maybeUpdateHeaders(force = false) {
             const now = Date.now();
             if (!force && now - this.lastHeaderCheck < 1000) return;
@@ -91,8 +108,13 @@ class OwnTechPlotUPlot {
             for (const ds of uniqueDs) {
                 if (!ds) continue;
                 const hdrs = await this._fetchHeaders(ds);
+                const cols = await this._fetchColors(ds);
                 if (!_.isEqual(hdrs, this.headersByDs[ds])) {
                     this.headersByDs[ds] = hdrs;
+                    changed = true;
+                }
+                if (!_.isEqual(cols, this.colorsByDs[ds])) {
+                    this.colorsByDs[ds] = cols;
                     changed = true;
                 }
             }
@@ -109,6 +131,15 @@ class OwnTechPlotUPlot {
             return `Channel ${chIdx + 1}`;
         }
 
+        _getSeriesColor(idx) {
+            const mapping = this.dsMap[idx] || {};
+            const ds = mapping.ds ?? this.datasourceName;
+            const chIdx = mapping.idx ?? this.channelIndices[idx] ?? idx;
+            const colors = this.colorsByDs[ds] || [];
+            if (colors[chIdx]) return colors[chIdx];
+            return `hsl(${(idx * 60) % 360}, 70%, 50%)`;
+        }
+
         render(containerElement) {
             this.container.appendTo(containerElement);
             this._initPlot();
@@ -119,7 +150,7 @@ class OwnTechPlotUPlot {
             const resolvedSeries = series || [{ label: "Time" }];
             if (!series) {
                 for (let i = 0; i < this.seriesCount; i++) {
-                    const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
+                    const color = this._getSeriesColor(i);
                     const lbl = this._getSeriesLabel(i);
                     resolvedSeries.push({ label: lbl, stroke: color });
                 }
@@ -203,7 +234,7 @@ class OwnTechPlotUPlot {
 
             const series = [{ label: "Time" }];
             for (let i = 0; i < this.seriesCount; i++) {
-                const color = `hsl(${(i * 60) % 360}, 70%, 50%)`;
+                const color = this._getSeriesColor(i);
                 const lbl = this._getSeriesLabel(i);
                 series.push({ label: lbl, stroke: color });
             }
