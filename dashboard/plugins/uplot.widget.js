@@ -1,4 +1,5 @@
 (function () {
+    const defaultColor = require('../../defaultColor');
     freeboard.loadWidgetPlugin({
         type_name: "owntech_plot_uplot",
         display_name: "OwnTech Plot (uPlot)",
@@ -137,7 +138,7 @@ class OwnTechPlotUPlot {
             const chIdx = mapping.idx ?? this.channelIndices[idx] ?? idx;
             const colors = this.colorsByDs[ds] || [];
             if (colors[chIdx]) return colors[chIdx];
-            return `hsl(${(idx * 60) % 360}, 70%, 50%)`;
+            return defaultColor(idx);
         }
 
         render(containerElement) {

@@ -3,6 +3,7 @@ const path = require('path');
 const { SerialPort } = require('serialport');
 const fs = require('fs');
 const { flashFirmware, cancelFlash } = require('./flasher');
+const defaultColor = require('./defaultColor');
 
 let mainWindow; // reference to the main BrowserWindow
 
@@ -163,7 +164,20 @@ ipcMain.handle('set-serial-headers', (_event, { path, headers }) => {
 
 // 🎨 Get/set colors for a port
 ipcMain.handle('get-serial-colors', (_event, { path }) => {
-    return colorBuffers.get(path) || [];
+    const colors = colorBuffers.get(path);
+    if (Array.isArray(colors) && colors.length) return colors;
+
+    const headers = headerBuffers.get(path);
+    if (Array.isArray(headers) && headers.length) {
+        return headers.map((_, idx) => defaultColor(idx));
+    }
+
+    const data = serialBuffers.get(path);
+    if (Array.isArray(data) && data.length && Array.isArray(data[0])) {
+        return data[0].map((_, idx) => defaultColor(idx));
+    }
+
+    return [];
 });
 
 ipcMain.handle('set-serial-colors', (_event, { path, colors }) => {

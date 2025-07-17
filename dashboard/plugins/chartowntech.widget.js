@@ -1,4 +1,5 @@
 (function () {
+    const defaultColor = require('../../defaultColor');
     freeboard.loadWidgetPlugin({
         type_name: "owntech_plot",
         display_name: "OwnTech Plot",
@@ -292,8 +293,8 @@
                 const index = this.chart.data.datasets.length;
                 this.chart.data.datasets.push({
                     label: `Channel ${index + 1}`,
-                    borderColor: `hsl(${(index * 60) % 360}, 70%, 50%)`,
-                    backgroundColor: `hsla(${(index * 60) % 360}, 70%, 50%, 0.1)`,
+                    borderColor: defaultColor(index),
+                    backgroundColor: defaultColor(index).replace('hsl(', 'hsla(').replace(')', ', 0.1)'),
                     fill: false,
                     data: [],
                     borderDash: [],
