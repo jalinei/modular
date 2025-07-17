@@ -155,7 +155,7 @@
                 labels.push($(row).find('input[type="text"]').val().trim());
                 colors.push($(row).find('input[type="color"]').val() || '#ff0000');
             });
-            const clean = labels.filter(l => l);
+            const clean = labels.slice();
             const newHeaders = labels.map((l, i) => ({ label: l, color: colors[i] }));
             const dsSettings = freeboard.getDatasourceSettings(this.settings.datasource) || {};
             if (typeof freeboard.setDatasourceSettings === 'function') {

@@ -200,7 +200,7 @@
         }
 
         getHeight() {
-            return 3;
+            return 5;
         }
     }
 })();

@@ -121,7 +121,7 @@
             }
         }
 
-        getHeight() { return 2; }
+        getHeight() { return 3; }
     }
 })();
 
