@@ -63,7 +63,8 @@
             row.append(`<td>${idx}</td>`);
             const input = $(`<input type="text" class="form-control form-control-sm" value="${label}">`);
             row.append($('<td></td>').append(input));
-            const del = $('<button class="btn btn-danger btn-sm">✕</button>').on('click', () => { row.remove(); this._renumber(); });
+            const del = $('<button class="btn btn-danger btn-sm py-0 px-1">✕</button>')
+                .on('click', () => { row.remove(); this._renumber(); });
             row.append($('<td></td>').append(del));
             tbody.append(row);
         }
