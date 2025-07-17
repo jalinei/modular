@@ -15,12 +15,9 @@
             this.ipc = window.require?.("electron")?.ipcRenderer;
             this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
             this.dsSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
-            this.tableWrap = $('<div class="flex-fill overflow-auto"></div>');
-            this.table = $(
-                '<table class="table table-bordered table-sm mb-0" style="table-layout:fixed;">' +
-                '<thead><tr><th style="width:30px">#</th><th>Label</th><th>Color</th><th style="width:30px"></th></tr></thead>' +
-                '<tbody></tbody></table>'
-            );
+            this.rowsWrap = $('<div class="flex-fill overflow-auto"></div>');
+            this.rows = $('<div class="d-flex flex-column"></div>');
+            this.rowsWrap.append(this.rows);
             this.addBtn = $('<button class="btn btn-secondary btn-sm">Add Field</button>');
             this.saveBtn = $('<button class="btn btn-primary btn-sm">Save</button>');
             this._configHandler = () => this._refreshDatasourceOptions();
@@ -32,9 +29,8 @@
             const dsRow = $('<div class="input-group input-group-sm mb-1"></div>');
             dsRow.append('<span class="input-group-text">Datasource</span>', this.dsSelect);
             const btnRow = $('<div class="d-flex gap-1"></div>').append(this.addBtn, this.saveBtn);
-            this.container.append(dsRow, this.tableWrap, btnRow);
-            this.tableWrap.append(this.table);
-            this.addBtn.on('click', () => this._addRow());
+            this.container.append(dsRow, this.rowsWrap, btnRow);
+           this.addBtn.on('click', () => this._addRow());
             this.saveBtn.on('click', () => this._save());
             this.dsSelect.on('change', () => {
                 this.settings.datasource = this.dsSelect.val();
@@ -53,27 +49,26 @@
         }
 
         _clearRows() {
-            this.table.find('tbody').empty();
+            this.rows.empty();
         }
 
         _addRow(label = '', color = '#ff0000') {
-            const tbody = this.table.find('tbody');
-            const idx = tbody.children().length + 1;
-            const row = $('<tr></tr>');
-            row.append(`<td>${idx}</td>`);
-            const input = $(`<input type="text" class="form-control form-control-sm" value="${label}">`);
-            row.append($('<td></td>').append(input));
-            const colorInput = $(`<input type="color" value="${color}" style="width:100%; box-sizing:border-box;">`);
-            row.append($('<td></td>').append(colorInput));
-            const del = $('<button class="btn btn-danger btn-sm py-0 px-1">✕</button>')
+            const idx = this.rows.children().length + 1;
+            const row = $('<div class="input-group input-group-sm mb-1"></div>');
+            row.append(`<span class="input-group-text">${idx}</span>`);
+            const input = $(`<input type="text" class="form-control" value="${label}">`);
+            row.append(input);
+            const colorInput = $(`<input type="color" class="form-control form-control-color" value="${color}" title="Choose color">`);
+            row.append(colorInput);
+            const del = $('<button class="btn btn-danger" type="button">✕</button>')
                 .on('click', () => { row.remove(); this._renumber(); });
-            row.append($('<td></td>').append(del));
-            tbody.append(row);
+            row.append(del);
+            this.rows.append(row);
         }
 
         _renumber() {
-            this.table.find('tbody tr').each((i, tr) => {
-                $(tr).children().first().text(i + 1);
+            this.rows.children().each((i, row) => {
+                $(row).children('.input-group-text').first().text(i + 1);
             });
         }
 
@@ -107,7 +102,7 @@
 
         async _save() {
             if (!this.settings.datasource) return;
-            const rows = this.table.find('tbody tr');
+            const rows = this.rows.children();
             const labels = [];
             const colors = [];
             rows.each((_, row) => {
