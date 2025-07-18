@@ -16,25 +16,33 @@
         return window.mean.caller || arguments.callee.caller;
     }
 
-    function getBuffer(key){
-        let buf = buffers.get(key);
-        if(!buf){
-            buf = [];
-            buffers.set(key, buf);
+    function getEntry(key){
+        let entry = buffers.get(key);
+        if(!entry){
+            entry = { size: 0, buffer: [] };
+            buffers.set(key, entry);
         }
-        return buf;
+        return entry;
     }
 
     window.mean = function(value, windowSize){
         windowSize = parseInt(windowSize);
         if(isNaN(windowSize) || windowSize <= 0) windowSize = 10;
         const key = getKey();
-        const buffer = getBuffer(key);
-        buffer.push(value);
-        if(buffer.length > windowSize){
-            buffer.shift();
+        const entry = getEntry(key);
+
+        if(entry.size !== windowSize){
+            entry.size = windowSize;
+            if(entry.buffer.length > windowSize){
+                entry.buffer = entry.buffer.slice(-windowSize);
+            }
         }
-        const sum = buffer.reduce((a,b)=>a+b,0);
-        return buffer.length ? sum / buffer.length : 0;
+
+        entry.buffer.push(value);
+        if(entry.buffer.length > entry.size){
+            entry.buffer.shift();
+        }
+        const sum = entry.buffer.reduce((a,b)=>a+b,0);
+        return entry.buffer.length ? sum / entry.buffer.length : 0;
     };
 })();
