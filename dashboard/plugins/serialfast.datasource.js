@@ -4,66 +4,43 @@
         constructor(settings, updateCallback) {
             this.settings = settings;
             this.updateCallback = updateCallback;
-            this.timer = null;
-            this.latest = null;
-            this._start();
+            this.ipcHandler = (_e, msg) => {
+                if (msg && msg.path === this.settings.portPath) {
+                    this.updateCallback({ frame: msg.data });
+                }
+            };
+            if (ipcRenderer) ipcRenderer.on('fast-frame', this.ipcHandler);
+            this._openPort();
         }
 
         async _openPort() {
             if (!ipcRenderer) return;
             try {
-                await ipcRenderer.invoke("open-serial-port", {
+                await ipcRenderer.invoke('open-serial-port', {
                     path: this.settings.portPath,
                     baudRate: this.settings.baudRate,
-                    separator: this.settings.separator,
                     eol: this.settings.eol
                 });
             } catch (e) {
-                console.error("Open serial failed:", e.message);
+                console.error('Open serial failed:', e.message);
             }
         }
-
-        async _poll() {
-            if (!ipcRenderer) return;
-            try {
-                const data = await ipcRenderer.invoke('get-fast-data', { path: this.settings.portPath });
-                if (data && Array.isArray(data.data)) {
-                    this.latest = data;
-                }
-            } catch (e) {
-                console.error('Failed to get fast data:', e);
-            }
-        }
-
-        updateNow = async () => {
-            await this._poll();
-            if (this.latest) {
-                this.updateCallback(this.latest);
-            }
-        };
 
         onDispose() {
-            if (this.timer) clearInterval(this.timer);
-            if (ipcRenderer && this.settings.portPath) {
-                ipcRenderer.invoke('close-serial-port', { path: this.settings.portPath }).catch(() => {});
+            if (ipcRenderer) {
+                ipcRenderer.removeListener('fast-frame', this.ipcHandler);
+                if (this.settings.portPath) {
+                    ipcRenderer.invoke('close-serial-port', { path: this.settings.portPath }).catch(() => {});
+                }
             }
         }
 
         onSettingsChanged(newSettings) {
+            if (ipcRenderer && this.settings.portPath && this.settings.portPath !== newSettings.portPath) {
+                ipcRenderer.invoke('close-serial-port', { path: this.settings.portPath }).catch(() => {});
+            }
             this.settings = newSettings;
             this._openPort();
-            this._startTimer();
-        }
-
-        _startTimer() {
-            if (this.timer) clearInterval(this.timer);
-            const interval = parseInt(this.settings.refresh) || 1000;
-            this.timer = setInterval(() => this.updateNow(), interval);
-        }
-
-        _start() {
-            this._openPort();
-            this._startTimer();
         }
     }
 
@@ -85,9 +62,7 @@
             settings: [
                 { name: 'portPath', display_name: 'Port', type: 'option', options: portOptions, default_value: portOptions.length ? portOptions[0].value : '' },
                 { name: 'baudRate', display_name: 'Baud Rate', type: 'number', default_value: 115200 },
-                { name: 'separator', display_name: 'Separator', type: 'text', default_value: ':' },
-                { name: 'eol', display_name: 'End of Line', type: 'text', default_value: '\\r\\n' },
-                { name: 'refresh', display_name: 'Refresh Every', type: 'number', suffix: 'ms', default_value: 1000 }
+                { name: 'eol', display_name: 'End of Line', type: 'text', default_value: '\\r\\n' }
             ],
             newInstance: function (settings, newInstanceCallback, updateCallback) {
                 newInstanceCallback(new SerialFastDatasource(settings, updateCallback));

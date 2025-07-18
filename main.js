@@ -67,39 +67,18 @@ function hexToFloatBE(hex) {
 function processFastContent(line, state) {
     const clean = line.trim();
     if (!clean) return;
-    if (clean.startsWith('#')) {
-        state.headers.push(clean.substring(1).trim());
-    } else {
-        const val = hexToFloatBE(clean);
+    const tokens = clean.split(/\s+/);
+    for (const t of tokens) {
+        if (!t) continue;
+        const val = hexToFloatBE(t);
         if (!isNaN(val)) state.data.push(val);
     }
 }
 
 function finalizeFastFrame(path, state) {
-    if (!state.headers.length) {
-        fastDataBuffers.set(path, { data: [], headers: [] });
-        state.data = [];
-        return;
-    }
-    const names = state.headers[0].split(',').map(s => s.trim());
-    const nCols = Math.max(names.length - 1, 1);
-    const idxLine = state.headers[1];
-    let rows = [];
-    for (let i = 0; i + nCols <= state.data.length; i += nCols) {
-        rows.push(state.data.slice(i, i + nCols));
-    }
-    if (typeof idxLine !== 'undefined') {
-        const idx = parseInt(idxLine);
-        if (!isNaN(idx) && rows.length) {
-            const shift = (idx + 1) % rows.length;
-            if (shift) rows = rows.slice(shift).concat(rows.slice(0, shift));
-        }
-    }
-    const headers = names.slice(0, nCols);
-    fastDataBuffers.set(path, { data: rows, headers });
-    headerBuffers.set(path, headers);
+    fastDataBuffers.set(path, { data: state.data.slice() });
     state.data = [];
-    state.headers = [];
+    mainWindow?.webContents.send('fast-frame', { path, data: fastDataBuffers.get(path).data });
 }
 
 function createWindow() {
@@ -154,7 +133,7 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
 
         let rawBuffer = "";
 
-        fastStates.set(path, { mode: 'idle', headers: [], data: [] });
+        fastStates.set(path, { mode: 'idle', data: [] });
 
         terminalBuffers.set(path, []);
         serialBuffers.set(path, []);
@@ -173,7 +152,6 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
                 if (state.mode === 'idle') {
                     if (line.includes('begin record')) {
                         state.mode = 'record';
-                        state.headers = [];
                         state.data = [];
                         const idx = line.indexOf('begin record');
                         line = line.slice(idx + 'begin record'.length).trim();
@@ -446,5 +424,5 @@ ipcMain.handle('is-serial-port-open', async (_event, { path }) => {
 
 // 📊 Retrieve parsed fast-frame data
 ipcMain.handle('get-fast-data', async (_event, { path }) => {
-    return fastDataBuffers.get(path) || { data: [], headers: [] };
+    return fastDataBuffers.get(path) || { data: [] };
 });
