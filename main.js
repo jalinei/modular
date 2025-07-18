@@ -67,6 +67,16 @@ function hexToFloatBE(hex) {
 function processFastContent(line, state) {
     const clean = line.trim();
     if (!clean) return;
+    if (clean.startsWith('#')) {
+        const noHash = clean.slice(1).trim();
+        if (!state.headers.length) {
+            state.headers = noHash.split(',').map(s => s.trim()).filter(Boolean);
+        } else if (state.index === null) {
+            const idx = parseInt(noHash, 10);
+            if (!isNaN(idx)) state.index = idx;
+        }
+        return;
+    }
     const tokens = clean.split(/\s+/);
     for (const t of tokens) {
         if (!t) continue;
@@ -75,10 +85,36 @@ function processFastContent(line, state) {
     }
 }
 
+function rotateArray(arr, offset) {
+    if (!arr.length) return arr;
+    const mod = ((offset % arr.length) + arr.length) % arr.length;
+    return arr.slice(mod).concat(arr.slice(0, mod));
+}
+
 function finalizeFastFrame(path, state) {
-    fastDataBuffers.set(path, { data: state.data.slice() });
+    const colCount = state.headers.length > 0 ? state.headers.length - 1 : 0;
+    const result = { headers: state.headers.slice(0, colCount), data: [] };
+    if (colCount > 0 && state.data.length >= colCount) {
+        const rowCount = Math.floor(state.data.length / colCount);
+        for (let i = 0; i < colCount; i++) result.data[i] = [];
+        for (let r = 0; r < rowCount; r++) {
+            for (let c = 0; c < colCount; c++) {
+                result.data[c].push(state.data[r * colCount + c]);
+            }
+        }
+        if (state.index !== null) {
+            const offset = state.index + 1;
+            for (let i = 0; i < colCount; i++) {
+                result.data[i] = rotateArray(result.data[i], offset);
+            }
+        }
+    }
+    fastDataBuffers.set(path, result);
+    headerBuffers.set(path, result.headers);
     state.data = [];
-    mainWindow?.webContents.send('fast-frame', { path, data: fastDataBuffers.get(path).data });
+    state.headers = [];
+    state.index = null;
+    mainWindow?.webContents.send('fast-frame', { path, data: result });
 }
 
 function createWindow() {
@@ -133,7 +169,7 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
 
         let rawBuffer = "";
 
-        fastStates.set(path, { mode: 'idle', data: [] });
+        fastStates.set(path, { mode: 'idle', data: [], headers: [], index: null });
 
         terminalBuffers.set(path, []);
         serialBuffers.set(path, []);
@@ -153,6 +189,8 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
                     if (line.includes('begin record')) {
                         state.mode = 'record';
                         state.data = [];
+                        state.headers = [];
+                        state.index = null;
                         const idx = line.indexOf('begin record');
                         line = line.slice(idx + 'begin record'.length).trim();
                         if (line) processFastContent(line, state);
@@ -424,5 +462,5 @@ ipcMain.handle('is-serial-port-open', async (_event, { path }) => {
 
 // 📊 Retrieve parsed fast-frame data
 ipcMain.handle('get-fast-data', async (_event, { path }) => {
-    return fastDataBuffers.get(path) || { data: [] };
+    return fastDataBuffers.get(path) || { headers: [], data: [] };
 });

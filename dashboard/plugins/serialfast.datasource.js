@@ -17,8 +17,8 @@
             if (!ipcRenderer) return;
             try {
                 const data = await ipcRenderer.invoke('get-fast-data', { path: this.settings.portPath });
-                if (data && Array.isArray(data.data)) {
-                    this.updateCallback({ frame: data.data });
+                if (data) {
+                    this.updateCallback({ frame: data });
                 }
             } catch (err) {
                 console.error('Fast data update failed:', err);
