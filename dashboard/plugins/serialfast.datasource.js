@@ -13,6 +13,18 @@
             this._openPort();
         }
 
+        async updateNow() {
+            if (!ipcRenderer) return;
+            try {
+                const data = await ipcRenderer.invoke('get-fast-data', { path: this.settings.portPath });
+                if (data && Array.isArray(data.data)) {
+                    this.updateCallback({ frame: data.data });
+                }
+            } catch (err) {
+                console.error('Fast data update failed:', err);
+            }
+        }
+
         async _openPort() {
             if (!ipcRenderer) return;
             try {
