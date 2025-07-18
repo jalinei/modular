@@ -1,16 +1,28 @@
 (function () {
     const ipcRenderer = window.require?.("electron")?.ipcRenderer;
+
     class SerialFastDatasource {
         constructor(settings, updateCallback) {
             this.settings = settings;
             this.updateCallback = updateCallback;
+            this.lastFrame = null;
             this.ipcHandler = (_e, msg) => {
                 if (msg && msg.path === this.settings.portPath) {
-                    this.updateCallback({ frame: msg.data });
+                    this._handleFrame(msg.data);
                 }
             };
             if (ipcRenderer) ipcRenderer.on('fast-frame', this.ipcHandler);
             this._openPort();
+        }
+
+        _handleFrame(frame) {
+            if (!frame || !Array.isArray(frame.data)) return;
+            this.lastFrame = frame;
+            const out = {};
+            frame.data.forEach((arr, idx) => {
+                out[`y${idx + 1}`] = Array.isArray(arr) ? arr : [];
+            });
+            this.updateCallback(out);
         }
 
         async updateNow() {
@@ -18,7 +30,7 @@
             try {
                 const data = await ipcRenderer.invoke('get-fast-data', { path: this.settings.portPath });
                 if (data) {
-                    this.updateCallback({ frame: data });
+                    this._handleFrame(data);
                 }
             } catch (err) {
                 console.error('Fast data update failed:', err);
