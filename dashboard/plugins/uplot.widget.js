@@ -2,14 +2,14 @@
     freeboard.loadWidgetPlugin({
         type_name: "owntech_plot_uplot",
         display_name: "Plot widget",
-        description: "Realtime uPlot-based chart",
+        description: "Realtime uPlot-based chart. Accepts streaming values or a full dataset",
         external_scripts: [
             "https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.iife.min.js",
             "https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.min.css"
         ],
         settings: [
             { name: "title", display_name: "Title", type: "text" },
-            { name: "data", display_name: "Data (should return array or { y: array })", type: "calculated" },
+            { name: "data", display_name: "Data (array, { y: array }, or { timestamps, series })", type: "calculated" },
             { name: "duration", display_name: "Display Duration (ms)", type: "number", default_value: 20000 },
             { name: "refreshRate", display_name: "Refresh Rate (ms)", type: "number", default_value: 1000 },
             { name: "yLabel", display_name: "Y Axis Label", type: "text", default_value: "Value" },
@@ -226,6 +226,25 @@ class OwnTechPlotUPlot {
             }
         }
 
+        _setFullDataset(dataset) {
+            if (!dataset || !Array.isArray(dataset.timestamps) ||
+                !Array.isArray(dataset.series)) {
+                return;
+            }
+
+            this.seriesCount = dataset.series.length;
+
+            if (!this.plot || this.plot.series.length - 1 !== this.seriesCount) {
+                this._resetPlot();
+            }
+
+            this.dataBuffer = [dataset.timestamps, ...dataset.series];
+            if (this.plot) {
+                this.plot.setData(this.dataBuffer);
+                this.lastRender = Date.now();
+            }
+        }
+
         _resetPlot() {
             if (this.plot) {
                 this.plot.destroy();
@@ -271,6 +290,11 @@ class OwnTechPlotUPlot {
         onCalculatedValueChanged(settingName, newValue) {
             this._maybeUpdateHeaders();
             if (!newValue) return;
+
+            if (newValue && Array.isArray(newValue.timestamps) && Array.isArray(newValue.series)) {
+                this._setFullDataset(newValue);
+                return;
+            }
 
             let yValues = [];
             if (typeof newValue === 'number') {
