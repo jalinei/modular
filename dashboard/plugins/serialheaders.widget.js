@@ -142,8 +142,9 @@
             if (this.ipc) {
                 try {
                     const path = await this._getPortPath();
-                    headers = await this.ipc.invoke('get-serial-headers', { path });
-                    colors = await this.ipc.invoke('get-serial-colors', { path });
+                    const type = this._getDatasourceType();
+                    headers = await this.ipc.invoke('get-serial-headers', { path, type });
+                    colors = await this.ipc.invoke('get-serial-colors', { path, type });
                 } catch (e) { /* ignore */ }
             }
             if (!Array.isArray(headers) || !headers.length) {
@@ -184,8 +185,9 @@
             if (this.ipc) {
                 try {
                     const path = await this._getPortPath();
-                    await this.ipc.invoke('set-serial-headers', { path, headers: clean });
-                    await this.ipc.invoke('set-serial-colors', { path, colors });
+                    const type = this._getDatasourceType();
+                    await this.ipc.invoke('set-serial-headers', { path, type, headers: clean });
+                    await this.ipc.invoke('set-serial-colors', { path, type, colors });
                 } catch (e) { console.error('Failed to set headers', e); }
             }
         }

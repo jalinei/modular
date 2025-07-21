@@ -71,12 +71,27 @@ class OwnTechPlotUPlot {
             }
         }
 
+        _getDatasourceType(name) {
+            const live = freeboard.getLiveModel?.();
+            if (!live || typeof live.datasources !== 'function') return null;
+            const list = live.datasources();
+            for (const ds of list) {
+                try {
+                    if (ds.name && ds.name() === name) {
+                        return ds.type?.();
+                    }
+                } catch (e) { /* ignore */ }
+            }
+            return null;
+        }
+
         async _fetchHeaders(dsName) {
             if (!this.ipc || !dsName) return [];
             const dsSettings = freeboard.getDatasourceSettings(dsName) || {};
             const path = dsSettings.portPath || dsName;
+            const type = this._getDatasourceType(dsName);
             try {
-                const headers = await this.ipc.invoke('get-serial-headers', { path });
+                const headers = await this.ipc.invoke('get-serial-headers', { path, type });
                 return Array.isArray(headers) ? headers : [];
             } catch (e) {
                 console.error('header fetch failed', e);
@@ -88,8 +103,9 @@ class OwnTechPlotUPlot {
             if (!this.ipc || !dsName) return [];
             const dsSettings = freeboard.getDatasourceSettings(dsName) || {};
             const path = dsSettings.portPath || dsName;
+            const type = this._getDatasourceType(dsName);
             try {
-                const colors = await this.ipc.invoke('get-serial-colors', { path });
+                const colors = await this.ipc.invoke('get-serial-colors', { path, type });
                 if (Array.isArray(colors) && colors.length) return colors;
             } catch (e) {
                 console.error('color fetch failed', e);

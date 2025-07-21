@@ -15,14 +15,20 @@ const activeRecordings = new Map(); // Active CSV recordings mapped by port path
 const openPorts = new Map(); // key: path, value: SerialPort instance
 const terminalBuffers = new Map(); // key: path, value: array of raw lines
 const serialBuffers = new Map(); // key: path, value: array of parsed data arrays
-const headerBuffers = new Map(); // key: path, value: array of header labels
-const colorBuffers = new Map(); // key: path, value: array of color strings
+// header and color buffers keyed by "path||type" to support multiple
+// datasources on the same serial port
+const headerBuffers = new Map();
+const colorBuffers = new Map();
 const fastStates = new Map(); // key: path, value: state for fast frame parsing
 const fastBuffers = new Map(); // key: path, value: last parsed fast dataset
 const FAST_IDLE = 0;
 const FAST_RECORD = 1;
 const MAX_BUFFER_SIZE = 1000;
 const MAX_TERMINAL_LINES = 200;
+
+function dsKey(path, type = 'serialport_datasource') {
+    return `${path}||${type}`;
+}
 
 
 
@@ -86,7 +92,7 @@ function handleFastLine(portPath, line) {
             if (!st.header) {
                 st.header = line.substring(1).trim();
                 const hdrs = st.header.split(',').map(h => h.trim()).filter(Boolean);
-                headerBuffers.set(portPath, hdrs);
+                headerBuffers.set(dsKey(portPath, 'fast_frame_datasource'), hdrs);
             } else if (st.idx === null) {
                 const num = parseInt(line.substring(1).trim());
                 st.idx = isNaN(num) ? null : num;
@@ -159,11 +165,15 @@ ipcMain.handle('get-serial-ports', async () => {
 });
 
 // 🚪 Open serial port with tracking and buffer setup
-ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eol }) => {
-	if (openPorts.has(path)) {
-		console.warn(`Port ${path} is already open.`);
-		return;
-	}
+ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eol, type = 'serialport_datasource' }) => {
+        if (openPorts.has(path)) {
+                console.warn(`Port ${path} is already open.`);
+                // ensure buffers for this datasource type exist
+                const key = dsKey(path, type);
+                if (!headerBuffers.has(key)) headerBuffers.set(key, []);
+                if (!colorBuffers.has(key)) colorBuffers.set(key, []);
+                return;
+        }
 
 	currentSettings.separator = separator || ":";
   currentSettings.eol = eol ? JSON.parse(`"${eol}"`) : "\n";
@@ -186,8 +196,8 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
 
         terminalBuffers.set(path, []);
         serialBuffers.set(path, []);
-        headerBuffers.set(path, []);
-        colorBuffers.set(path, []);
+        headerBuffers.set(dsKey(path, type), []);
+        colorBuffers.set(dsKey(path, type), []);
         fastStates.set(path, { state: FAST_IDLE, header: null, idx: null, data: [] });
         fastBuffers.delete(path);
 
@@ -215,8 +225,12 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
                         openPorts.delete(path);
                         terminalBuffers.delete(path);
                         serialBuffers.delete(path);
-                        headerBuffers.delete(path);
-                        colorBuffers.delete(path);
+                        for (const key of [...headerBuffers.keys()]) {
+                            if (key.startsWith(`${path}||`)) headerBuffers.delete(key);
+                        }
+                        for (const key of [...colorBuffers.keys()]) {
+                            if (key.startsWith(`${path}||`)) colorBuffers.delete(key);
+                        }
                         fastStates.delete(path);
                         fastBuffers.delete(path);
         });
@@ -240,24 +254,24 @@ ipcMain.handle("get-terminal-buffer", (event, { path }) => {
 });
 
 // 🏷️ Get/set headers for a port
-ipcMain.handle('get-serial-headers', (_event, { path }) => {
-    return headerBuffers.get(path) || [];
+ipcMain.handle('get-serial-headers', (_event, { path, type = 'serialport_datasource' }) => {
+    return headerBuffers.get(dsKey(path, type)) || [];
 });
 
-ipcMain.handle('set-serial-headers', (_event, { path, headers }) => {
+ipcMain.handle('set-serial-headers', (_event, { path, headers, type = 'serialport_datasource' }) => {
     if (!Array.isArray(headers)) headers = [];
-    headerBuffers.set(path, headers);
+    headerBuffers.set(dsKey(path, type), headers);
     return 'ok';
 });
 
 // 🎨 Get/set colors for a port
-ipcMain.handle('get-serial-colors', (_event, { path }) => {
-    return colorBuffers.get(path) || [];
+ipcMain.handle('get-serial-colors', (_event, { path, type = 'serialport_datasource' }) => {
+    return colorBuffers.get(dsKey(path, type)) || [];
 });
 
-ipcMain.handle('set-serial-colors', (_event, { path, colors }) => {
+ipcMain.handle('set-serial-colors', (_event, { path, colors, type = 'serialport_datasource' }) => {
     if (!Array.isArray(colors)) colors = [];
-    colorBuffers.set(path, colors);
+    colorBuffers.set(dsKey(path, type), colors);
     return 'ok';
 });
 
@@ -271,8 +285,12 @@ ipcMain.handle("close-serial-port", async (event, { path }) => {
                                                         openPorts.delete(path);
                                                         terminalBuffers.delete(path);
                                                         serialBuffers.delete(path);
-                                                        headerBuffers.delete(path);
-                                                        colorBuffers.delete(path);
+                                                        for (const key of [...headerBuffers.keys()]) {
+                                                            if (key.startsWith(`${path}||`)) headerBuffers.delete(key);
+                                                        }
+                                                        for (const key of [...colorBuffers.keys()]) {
+                                                            if (key.startsWith(`${path}||`)) colorBuffers.delete(key);
+                                                        }
                                                         fastStates.delete(path);
                                                         fastBuffers.delete(path);
                                                         resolve("closed");
@@ -303,7 +321,7 @@ ipcMain.handle("write-serial-port", async (event, { path, data }) => {
 });
 
 // 📂 Start CSV recording for a given port
-ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eol, order = 'old', addHeader = true, timestampMode = 'none' }) => {
+ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eol, order = 'old', addHeader = true, timestampMode = 'none', type = 'serialport_datasource' }) => {
         const port = openPorts.get(path);
         if (!port) {
                 throw new Error('port not open');
@@ -313,7 +331,7 @@ ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eo
         }
         const sep = separator || ',';
         const eolStr = eol ? JSON.parse(`"${eol}"`) : '\n';
-        const headers = headerBuffers.get(path) || [];
+        const headers = headerBuffers.get(dsKey(path, type)) || [];
         const recording = {
                 order,
                 addHeader,
@@ -446,8 +464,12 @@ ipcMain.on('cancel-flash', () => {
 ipcMain.handle('flush-serial-buffers', async (_event, { path }) => {
     terminalBuffers.set(path, []);
     serialBuffers.set(path, []);
-    headerBuffers.set(path, []);
-    colorBuffers.set(path, []);
+    for (const key of [...headerBuffers.keys()]) {
+        if (key.startsWith(`${path}||`)) headerBuffers.delete(key);
+    }
+    for (const key of [...colorBuffers.keys()]) {
+        if (key.startsWith(`${path}||`)) colorBuffers.delete(key);
+    }
     fastStates.delete(path);
     fastBuffers.delete(path);
     return 'flushed';

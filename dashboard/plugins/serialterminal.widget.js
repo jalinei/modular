@@ -100,8 +100,9 @@
             }
             const ds = freeboard.getDatasourceSettings(this.settings.datasourceName) || {};
             const path = ds.portPath || this.settings.datasourceName;
+            const type = this._getDatasourceType(this.settings.datasourceName);
             try {
-                const fetched = await this.ipcRenderer.invoke('get-serial-colors', { path });
+                const fetched = await this.ipcRenderer.invoke('get-serial-colors', { path, type });
                 if (Array.isArray(fetched) && fetched.length) {
                     this.colors = fetched;
                     return;
@@ -132,6 +133,20 @@
                 this.dsSelect.append(`<option value="${current}">${current}</option>`);
             }
             this.dsSelect.val(current);
+        }
+
+        _getDatasourceType(name) {
+            const live = freeboard.getLiveModel?.();
+            if (!live || typeof live.datasources !== 'function') return null;
+            const list = live.datasources();
+            for (const ds of list) {
+                try {
+                    if (ds.name && ds.name() === name) {
+                        return ds.type?.();
+                    }
+                } catch (e) { /* ignore */ }
+            }
+            return null;
         }
 
         _updateTimer() {
