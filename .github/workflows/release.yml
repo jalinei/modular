@@ -41,7 +41,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Use built-in or custom token
+      GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
       - uses: actions/download-artifact@v4
         with:
