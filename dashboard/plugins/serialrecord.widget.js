@@ -5,11 +5,6 @@
         description: "Start/stop CSV recording on a serial datasource",
         settings: [
             {
-                name: "datasource",
-                display_name: "Datasource Name",
-                type: "text"
-            },
-            {
                 name: "filePath",
                 display_name: "CSV File Path",
                 type: "text",
@@ -74,6 +69,11 @@
                 this.settings.datasource = this.dsSelect.val();
             });
 
+            this.fileInput = $('<input type="text" class="form-control form-control-sm">');
+            this.fileInput.on('change', () => {
+                this.settings.filePath = this.fileInput.val();
+            });
+
             this._configHandler = () => this._refreshDatasourceOptions();
             freeboard.on && freeboard.on('config_updated', this._configHandler);
 
@@ -109,6 +109,7 @@
 
             this.container.append(
                 makeRow('Datasource', this.dsSelect),
+                makeRow('CSV File', this.fileInput),
                 makeRow('Data Order', this.orderSelect),
                 makeCheckRow('Add label on the first line', this.headerCheck),
                 makeRow('Timestamp', this.timeSelect),
@@ -136,6 +137,7 @@
             this.orderSelect.val(this.settings.order || 'old');
             this.headerCheck.prop('checked', !!this.settings.addHeader);
             this.timeSelect.val(this.settings.timestampMode || 'none');
+            this.fileInput.val(this.settings.filePath || 'record.csv');
             this._refreshDatasourceOptions();
             if (this.settings.datasource) {
                 this.dsSelect.val(this.settings.datasource);
@@ -150,7 +152,8 @@
             this.dsSelect.empty();
             list.forEach(ds => {
                 try {
-                    if (ds.type && ds.type() === 'serialport_datasource') {
+                    const t = ds.type && ds.type();
+                    if (t === 'serialport_datasource' || t === 'fast_frame_datasource') {
                         const name = ds.name();
                         this.dsSelect.append(`<option value="${name}">${name}</option>`);
                     }
@@ -162,6 +165,20 @@
             this.dsSelect.val(current);
         }
 
+        _getDatasourceType() {
+            const live = freeboard.getLiveModel?.();
+            if (!live || typeof live.datasources !== 'function') return null;
+            const list = live.datasources();
+            for (const ds of list) {
+                try {
+                    if (ds.name && ds.name() === this.settings.datasource) {
+                        return ds.type?.();
+                    }
+                } catch (e) { /* ignore */ }
+            }
+            return null;
+        }
+
         async _toggleRecord() {
             if (!this.ipc) return;
             if (this.isRecording) {
@@ -171,6 +188,7 @@
             } else {
                 const dsSettings = freeboard.getDatasourceSettings(this.settings.datasource) || {};
                 this.portPath = dsSettings.portPath || this.settings.datasource;
+                const type = this._getDatasourceType();
                 await this.ipc.invoke('start-csv-record', {
                     path: this.portPath,
                     filePath: this.settings.filePath,
@@ -178,7 +196,8 @@
                     eol: dsSettings.eol || this.settings.eol,
                     order: this.settings.order,
                     addHeader: this.settings.addHeader,
-                    timestampMode: this.settings.timestampMode
+                    timestampMode: this.settings.timestampMode,
+                    type
                 });
                 this.isRecording = true;
                 this.button.text('Stop Record');
