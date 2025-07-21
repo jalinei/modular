@@ -181,14 +181,26 @@
 
         async _toggleRecord() {
             if (!this.ipc) return;
+            const dsSettings = freeboard.getDatasourceSettings(this.settings.datasource) || {};
+            this.portPath = dsSettings.portPath || this.settings.datasource;
+            const type = this._getDatasourceType();
+            if (type === 'fast_frame_datasource') {
+                await this.ipc.invoke('save-fast-csv', {
+                    path: this.portPath,
+                    filePath: this.settings.filePath,
+                    separator: dsSettings.separator || this.settings.separator,
+                    eol: dsSettings.eol || this.settings.eol,
+                    addHeader: this.settings.addHeader,
+                    timestampMode: this.settings.timestampMode
+                });
+                return;
+            }
+
             if (this.isRecording) {
                 await this.ipc.invoke('stop-csv-record', { path: this.portPath });
                 this.isRecording = false;
                 this.button.text('Start Record');
             } else {
-                const dsSettings = freeboard.getDatasourceSettings(this.settings.datasource) || {};
-                this.portPath = dsSettings.portPath || this.settings.datasource;
-                const type = this._getDatasourceType();
                 await this.ipc.invoke('start-csv-record', {
                     path: this.portPath,
                     filePath: this.settings.filePath,

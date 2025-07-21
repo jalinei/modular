@@ -421,6 +421,43 @@ ipcMain.handle('stop-csv-record', async (event, { path }) => {
         return 'stopped';
 });
 
+// 💾 Save the latest fast frame dataset to CSV
+ipcMain.handle('save-fast-csv', async (event, { path, filePath, separator, eol, addHeader = true, timestampMode = 'none' }) => {
+        const dataset = fastBuffers.get(path);
+        if (!dataset || !Array.isArray(dataset.series)) {
+                throw new Error('no dataset');
+        }
+        const headers = headerBuffers.get(dsKey(path, 'fast_frame_datasource')) || [];
+        const sep = separator || ',';
+        const eolStr = eol ? JSON.parse(`"${eol}"`) : '\n';
+        const out = [];
+        if (addHeader) {
+                const h = [];
+                if (timestampMode !== 'none') {
+                        h.push(timestampMode === 'relative' ? 'time_ms' : 'timestamp');
+                }
+                for (let i = 0; i < dataset.series.length; i++) {
+                        h.push(headers[i] || `ch${i + 1}`);
+                }
+                out.push(h.join(sep));
+        }
+        for (let i = 0; i < dataset.timestamps.length; i++) {
+                const row = [];
+                if (timestampMode === 'relative') {
+                        row.push(String(dataset.timestamps[i]));
+                } else if (timestampMode === 'absolute') {
+                        row.push(new Date().toISOString());
+                }
+                for (let j = 0; j < dataset.series.length; j++) {
+                        row.push(String(dataset.series[j][i]));
+                }
+                out.push(row.join(sep));
+        }
+        const content = out.join(eolStr) + eolStr;
+        await fs.promises.writeFile(filePath, content);
+        return 'saved';
+});
+
 // 📂 Open a dialog to choose a firmware binary file
 ipcMain.handle('choose-firmware-file', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
