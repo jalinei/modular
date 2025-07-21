@@ -39,6 +39,8 @@ class OwnTechPlotUPlot {
             this.datasourceName = '';
             this.channelIndices = [];
             this.lastHeaderCheck = 0;
+            this._configHandler = () => this._maybeUpdateHeaders(true);
+            freeboard.on && freeboard.on('config_updated', this._configHandler);
             this._detectDatasource();
         }
 
@@ -319,6 +321,9 @@ class OwnTechPlotUPlot {
             if (this.plot) {
                 this.plot.destroy();
                 this.plot = null;
+            }
+            if (this._configHandler && freeboard.off) {
+                freeboard.off('config_updated', this._configHandler);
             }
         }
 
