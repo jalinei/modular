@@ -415,6 +415,18 @@ ipcMain.handle('choose-firmware-file', async () => {
     return filePaths[0];
 });
 
+// 📂 Open a dialog to choose a CSV data file
+ipcMain.handle('choose-csv-file', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openFile'],
+        filters: [{ name: 'CSV', extensions: ['csv'] }]
+    });
+    if (canceled || filePaths.length === 0) {
+        return null;
+    }
+    return filePaths[0];
+});
+
 // 🔥 Flash firmware to a board over serial
 ipcMain.handle('start-flash', async (event, { comPort, firmwarePath, mcumgrPath: userPath }) => {
     const existing = openPorts.get(comPort);
