@@ -66,12 +66,32 @@
             return dsSettings.portPath || this.settings.datasource;
         }
 
+        _getDatasourceType() {
+            const live = freeboard.getLiveModel?.();
+            if (!live || typeof live.datasources !== 'function') return null;
+            const list = live.datasources();
+            for (const ds of list) {
+                try {
+                    if (ds.name && ds.name() === this.settings.datasource) {
+                        return ds.type?.();
+                    }
+                } catch (e) { /* ignore */ }
+            }
+            return null;
+        }
+
         async _getChannelCount() {
             if (!this.ipc || !this.settings.datasource) return 0;
             try {
                 const path = await this._getPortPath();
-                const data = await this.ipc.invoke('get-serial-buffer', { path });
-                if (Array.isArray(data)) return data.length;
+                const dsType = this._getDatasourceType();
+                if (dsType === 'fast_frame_datasource') {
+                    const dataset = await this.ipc.invoke('get-fast-dataset', { path });
+                    if (dataset && Array.isArray(dataset.series)) return dataset.series.length;
+                } else {
+                    const data = await this.ipc.invoke('get-serial-buffer', { path });
+                    if (Array.isArray(data)) return data.length;
+                }
             } catch (e) { /* ignore */ }
             return 0;
         }
@@ -178,7 +198,8 @@
             this.dsSelect.empty();
             list.forEach(ds => {
                 try {
-                    if (ds.type && ds.type() === 'serialport_datasource') {
+                    const t = ds.type && ds.type();
+                    if (t === 'serialport_datasource' || t === 'fast_frame_datasource') {
                         const name = ds.name();
                         this.dsSelect.append(`<option value="${name}">${name}</option>`);
                     }
