@@ -13,12 +13,13 @@
 		async function openPort() {
 			if (!ipcRenderer) return;
 			try {
-				await ipcRenderer.invoke("open-serial-port", {
-					path: currentSettings.portPath,
-					baudRate: currentSettings.baudRate,
-					separator: currentSettings.separator,
-					eol: currentSettings.eol
-				});
+                                await ipcRenderer.invoke("open-serial-port", {
+                                        path: currentSettings.portPath,
+                                        baudRate: currentSettings.baudRate,
+                                        separator: currentSettings.separator,
+                                        eol: currentSettings.eol,
+                                        type: 'serialport_datasource'
+                                });
 			} catch (e) {
 				console.error("Open serial failed:", e.message);
 			}

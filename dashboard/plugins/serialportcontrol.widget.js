@@ -92,7 +92,8 @@
                     path,
                     baudRate: dsSettings.baudRate,
                     separator: dsSettings.separator,
-                    eol: dsSettings.eol
+                    eol: dsSettings.eol,
+                    type: 'serialport_datasource'
                 }).catch(() => {});
                 this.isOpen = true;
             }

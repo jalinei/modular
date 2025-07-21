@@ -11,7 +11,8 @@
                     path: currentSettings.portPath,
                     baudRate: currentSettings.baudRate,
                     separator: currentSettings.separator,
-                    eol: currentSettings.eol
+                    eol: currentSettings.eol,
+                    type: 'fast_frame_datasource'
                 });
             } catch (e) {
                 console.error('Open serial failed:', e.message);
