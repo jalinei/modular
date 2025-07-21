@@ -121,7 +121,7 @@ class OwnTechPlotUPlot {
             if (!force && now - this.lastHeaderCheck < 1000) return;
             this.lastHeaderCheck = now;
 
-            const uniqueDs = [...new Set(this.dsMap.map(d => d.ds || this.datasourceName))];
+            const uniqueDs = [...new Set([this.datasourceName, ...this.dsMap.map(d => d.ds)])].filter(Boolean);
             let changed = false;
             for (const ds of uniqueDs) {
                 if (!ds) continue;
