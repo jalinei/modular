@@ -97,8 +97,16 @@
             this.controls.duration.val(typeof settings.duration === "function" ? settings.duration() : settings.duration || 20000);
             this.controls.refreshRate.val(typeof settings.refreshRate === "function" ? settings.refreshRate() : settings.refreshRate || 1000);
             this.controls.yLabel.val(typeof settings.yLabel === "function" ? settings.yLabel() : settings.yLabel || "");
-            this.controls.yMin.val(typeof settings.yMin === "function" ? settings.yMin() : settings.yMin || "");
-            this.controls.yMax.val(typeof settings.yMax === "function" ? settings.yMax() : settings.yMax || "");
+            this.controls.yMin.val(
+                typeof settings.yMin === "function"
+                    ? settings.yMin()
+                    : (settings.yMin ?? "")
+            );
+            this.controls.yMax.val(
+                typeof settings.yMax === "function"
+                    ? settings.yMax()
+                    : (settings.yMax ?? "")
+            );
             this.controls.showLegend.prop("checked", !!(
                 typeof settings.showLegend === "function" ? settings.showLegend() : settings.showLegend
             ));
