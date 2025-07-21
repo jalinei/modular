@@ -17,6 +17,10 @@ const terminalBuffers = new Map(); // key: path, value: array of raw lines
 const serialBuffers = new Map(); // key: path, value: array of parsed data arrays
 const headerBuffers = new Map(); // key: path, value: array of header labels
 const colorBuffers = new Map(); // key: path, value: array of color strings
+const fastStates = new Map(); // key: path, value: state for fast frame parsing
+const fastBuffers = new Map(); // key: path, value: last parsed fast dataset
+const FAST_IDLE = 0;
+const FAST_RECORD = 1;
 const MAX_BUFFER_SIZE = 1000;
 const MAX_TERMINAL_LINES = 200;
 
@@ -50,6 +54,82 @@ function parseLine(line) {
 function parseLineCustom(line, sep) {
         const clean = line.trim();
         return clean.split(sep).map(s => s.trim()).filter(s => s !== "");
+}
+
+function handleFastLine(portPath, line) {
+    let st = fastStates.get(portPath);
+    if (!st) {
+        st = { state: FAST_IDLE, header: null, idx: null, data: [] };
+        fastStates.set(portPath, st);
+    }
+
+    if (line.includes('begin record')) {
+        st.state = FAST_RECORD;
+        st.header = null;
+        st.idx = null;
+        st.data = [];
+        return;
+    }
+
+    if (line.includes('end record')) {
+        st.state = FAST_IDLE;
+        const dataset = buildFastDataset(st);
+        if (dataset) fastBuffers.set(portPath, dataset);
+        st.header = null;
+        st.idx = null;
+        st.data = [];
+        return;
+    }
+
+    if (st.state === FAST_RECORD) {
+        if (line.startsWith('#')) {
+            if (!st.header) {
+                st.header = line.substring(1).trim();
+                const hdrs = st.header.split(',').map(h => h.trim()).filter(Boolean);
+                headerBuffers.set(portPath, hdrs);
+            } else if (st.idx === null) {
+                const num = parseInt(line.substring(1).trim());
+                st.idx = isNaN(num) ? null : num;
+            }
+        } else if (line.trim()) {
+            st.data.push(line.trim());
+        }
+    }
+}
+
+function buildFastDataset(st) {
+    if (!st.header || !st.data.length) return null;
+    let names = st.header.split(',').map(n => n.trim());
+    if (names[names.length - 1] === '') names.pop();
+
+    const floats = [];
+    for (const hex of st.data) {
+        try {
+            const buf = Buffer.from(hex, 'hex');
+            if (buf.length >= 4) floats.push(buf.readFloatBE(0));
+        } catch { /* ignore */ }
+    }
+
+    const chunk = names.length;
+    const rows = [];
+    for (let i = 0; i < floats.length; i += chunk) {
+        rows.push(floats.slice(i, i + chunk));
+    }
+    if (!rows.length) return null;
+
+    if (st.idx !== null && st.idx >= 0 && st.idx < rows.length) {
+        const shift = (st.idx + 1) % rows.length;
+        if (shift) {
+            for (let i = 0; i < shift; i++) {
+                rows.push(rows.shift());
+            }
+        }
+    }
+
+    const timestamps = rows.map((_, i) => i);
+    const series = names.map((_, ci) => rows.map(r => r[ci]));
+
+    return { timestamps, series };
 }
 
 function createWindow() {
@@ -108,20 +188,23 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
         serialBuffers.set(path, []);
         headerBuffers.set(path, []);
         colorBuffers.set(path, []);
+        fastStates.set(path, { state: FAST_IDLE, header: null, idx: null, data: [] });
+        fastBuffers.delete(path);
 
-	port.on("data", chunk => {
-			rawBuffer += chunk.toString();
-			const lines = rawBuffer.split(currentSettings.eol);
-			rawBuffer = lines.pop(); // keep the last (possibly incomplete) line
-			const termBuf = terminalBuffers.get(path) || [];
-			for (const line of lines) {
+        port.on("data", chunk => {
+                        rawBuffer += chunk.toString();
+                        const lines = rawBuffer.split(currentSettings.eol);
+                        rawBuffer = lines.pop(); // keep the last (possibly incomplete) line
+                        const termBuf = terminalBuffers.get(path) || [];
+                        for (const line of lines) {
                                         const parsed = parseLine(line);
                                         if (parsed.length) addToBuffer(path, parsed);
-					termBuf.push(line);
-					if (termBuf.length > MAX_TERMINAL_LINES) termBuf.shift();
-			}
-			terminalBuffers.set(path, termBuf);
-	});
+                                        handleFastLine(path, line);
+                                        termBuf.push(line);
+                                        if (termBuf.length > MAX_TERMINAL_LINES) termBuf.shift();
+                        }
+                        terminalBuffers.set(path, termBuf);
+        });
 
 	port.on("error", err => {
 		console.error("Serial port error:", err.message);
@@ -134,6 +217,8 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
                         serialBuffers.delete(path);
                         headerBuffers.delete(path);
                         colorBuffers.delete(path);
+                        fastStates.delete(path);
+                        fastBuffers.delete(path);
         });
 
 	openPorts.set(path, port);
@@ -143,6 +228,10 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
 ipcMain.handle("get-serial-buffer", (event, { path }) => {
         const buf = serialBuffers.get(path) || [];
         return buf.length > 0 ? buf[buf.length - 1] : [];
+});
+
+ipcMain.handle('get-fast-dataset', (event, { path }) => {
+    return fastBuffers.get(path) || null;
 });
 
 // 📄 Get terminal lines for a port
@@ -184,9 +273,11 @@ ipcMain.handle("close-serial-port", async (event, { path }) => {
                                                         serialBuffers.delete(path);
                                                         headerBuffers.delete(path);
                                                         colorBuffers.delete(path);
+                                                        fastStates.delete(path);
+                                                        fastBuffers.delete(path);
                                                         resolve("closed");
                                         });
-			});
+                        });
 	} else {
 			return "not open";
 	}
@@ -357,6 +448,8 @@ ipcMain.handle('flush-serial-buffers', async (_event, { path }) => {
     serialBuffers.set(path, []);
     headerBuffers.set(path, []);
     colorBuffers.set(path, []);
+    fastStates.delete(path);
+    fastBuffers.delete(path);
     return 'flushed';
 });
 
