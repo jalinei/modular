@@ -58,6 +58,12 @@ Test commands
 
 Windows support: use `ffi-napi` to bind your CAN vendor’s driver (e.g., Kvaser, PEAK PCAN, NI‑CAN) and implement the same `Bus` interface in `js/can_adapter.js` (`send`, `recv(timeoutMs)`, `shutdown`). No SocketCAN is required on Windows.
 
+### Linux SocketCAN setup (GUI auth)
+
+- Script: `scripts/setup_can_linux.sh` configures `can0` to 500000 bps and brings it up.
+- IPC: call `ipcRenderer.invoke('can-setup-linux')` from the renderer to request setup. The main process uses `pkexec` to prompt for admin rights via GUI and runs the script.
+- Notes: This is Linux-only. Ensure a PolicyKit agent is running on your desktop so `pkexec` can display the authentication prompt.
+
 ## Repository layout
 
 - `main.js` – Electron main process that handles serial ports and IPC.

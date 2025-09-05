@@ -3,6 +3,12 @@ const path = require('path');
 const { SerialPort } = require('serialport');
 const fs = require('fs');
 const { flashFirmware, cancelFlash } = require('./flasher');
+const { spawn } = require('child_process');
+// CAN / ThingSet
+const { createBus } = require('./js/can_adapter');
+const { ThingSetCAN } = require('./js/thingset_bin');
+const { scanNodes: scanCanNodes } = require('./js/scan');
+const { exploreId } = require('./js/query_nodes');
 
 let mainWindow; // reference to the main BrowserWindow
 
@@ -516,4 +522,157 @@ ipcMain.handle('flush-serial-buffers', async (_event, { path }) => {
 ipcMain.handle('is-serial-port-open', async (_event, { path }) => {
     const port = openPorts.get(path);
     return port ? port.isOpen : false;
+});
+
+// =============================
+// CAN / ThingSet IPC connectors
+// =============================
+
+const canBuses = new Map(); // key: channel name (e.g., 'can0') -> bus
+const tsClients = new Map(); // key: channel -> ThingSetCAN (source 0xEF)
+
+function ensureThingsetDir() {
+    const dir = path.join(process.cwd(), 'thingset');
+    fs.mkdirSync(dir, { recursive: true });
+    return dir;
+}
+
+// Open a CAN bus on a given channel and keep it for reuse
+ipcMain.handle('can-open', async (_event, { channel = 'can0', sourceAddr = 0xEF } = {}) => {
+    if (canBuses.has(channel)) return 'already-open';
+    const bus = await createBus({ channel });
+    canBuses.set(channel, bus);
+    tsClients.set(channel, new ThingSetCAN(bus, sourceAddr | 0));
+    return 'opened';
+});
+
+// Close a previously opened CAN bus
+ipcMain.handle('can-close', async (_event, { channel = 'can0' } = {}) => {
+    const bus = canBuses.get(channel);
+    if (!bus) return 'not-open';
+    try { await bus.shutdown(); } finally {
+        canBuses.delete(channel);
+        tsClients.delete(channel);
+    }
+    return 'closed';
+});
+
+// Scan the bus for nodes and return discovered mapping; also writes thingset/nodes.json
+ipcMain.handle('can-scan-nodes', async (_event, { channel = 'can0' } = {}) => {
+    ensureThingsetDir();
+    // Use bundled scanner which writes thingset/nodes.json
+    await scanCanNodes(channel).catch((e) => { throw new Error(`scan failed: ${e.message || e}`); });
+    // Read back the file and return JSON
+    const outPath = path.join(process.cwd(), 'thingset', 'nodes.json');
+    try {
+        const text = await fs.promises.readFile(outPath, 'utf8');
+        return { nodes: JSON.parse(text), path: outPath };
+    } catch (e) {
+        throw new Error(`failed to read nodes.json: ${e.message || e}`);
+    }
+});
+
+// Build ThingSet tree files for provided nodes or from thingset/nodes.json; returns a summary
+ipcMain.handle('can-build-trees', async (_event, { channel = 'can0', nodes = null, maxDepth = 16 } = {}) => {
+    ensureThingsetDir();
+    // Use existing or temporary bus
+    let bus = canBuses.get(channel);
+    let created = false;
+    if (!bus) { bus = await createBus({ channel }); created = true; }
+    const results = [];
+    try {
+        let mapping = nodes;
+        if (!mapping) {
+            // Fallback: read nodes.json
+            const np = path.join(process.cwd(), 'thingset', 'nodes.json');
+            mapping = JSON.parse(await fs.promises.readFile(np, 'utf8'));
+        }
+        for (const [addrStr, nodeUid] of Object.entries(mapping)) {
+            const addr = parseInt(addrStr, 10);
+            const root = await exploreId(bus, addr, 0x00, 0, maxDepth);
+            const tree = {
+                node_uid: nodeUid,
+                address: `0x${addr.toString(16).toUpperCase().padStart(2, '0')}`,
+                root,
+            };
+            const out = path.join(process.cwd(), 'thingset', `node_${addr.toString(16).toUpperCase().padStart(2, '0')}_tree.json`);
+            await fs.promises.writeFile(out, JSON.stringify(tree, null, 2), 'utf8');
+            results.push({ addr, out });
+        }
+    } finally {
+        if (created) await bus.shutdown();
+    }
+    return { written: results };
+});
+
+// Helper to get or create a ThingSet client for a channel
+async function getClient(channel = 'can0', sourceAddr = 0xEF) {
+    if (!tsClients.has(channel)) {
+        const bus = await createBus({ channel });
+        canBuses.set(channel, bus);
+        tsClients.set(channel, new ThingSetCAN(bus, sourceAddr | 0));
+    }
+    return tsClients.get(channel);
+}
+
+ipcMain.handle('ts-get', async (_e, { channel = 'can0', targetAddr, endpoint, timeoutMs = 2000, sourceAddr = 0xEF }) => {
+    const ts = await getClient(channel, sourceAddr);
+    const resp = await ts.get(targetAddr, endpoint, timeoutMs);
+    return resp;
+});
+
+ipcMain.handle('ts-fetch', async (_e, { channel = 'can0', targetAddr, endpoint, items = null, timeoutMs = 2000, sourceAddr = 0xEF }) => {
+    const ts = await getClient(channel, sourceAddr);
+    return ts.fetch(targetAddr, endpoint, items, timeoutMs);
+});
+
+ipcMain.handle('ts-update', async (_e, { channel = 'can0', targetAddr, endpoint, values, timeoutMs = 2000, sourceAddr = 0xEF }) => {
+    const ts = await getClient(channel, sourceAddr);
+    return ts.update(targetAddr, endpoint, values, timeoutMs);
+});
+
+ipcMain.handle('ts-create', async (_e, { channel = 'can0', targetAddr, endpoint, value, timeoutMs = 2000, sourceAddr = 0xEF }) => {
+    const ts = await getClient(channel, sourceAddr);
+    return ts.create(targetAddr, endpoint, value, timeoutMs);
+});
+
+ipcMain.handle('ts-delete', async (_e, { channel = 'can0', targetAddr, endpoint, value, timeoutMs = 2000, sourceAddr = 0xEF }) => {
+    const ts = await getClient(channel, sourceAddr);
+    return ts.delete(targetAddr, endpoint, value, timeoutMs);
+});
+
+ipcMain.handle('ts-exec', async (_e, { channel = 'can0', targetAddr, endpoint, args = [], timeoutMs = 2000, sourceAddr = 0xEF }) => {
+    const ts = await getClient(channel, sourceAddr);
+    return ts.exec(targetAddr, endpoint, args, timeoutMs);
+});
+
+ipcMain.handle('ts-paths-for-ids', async (_e, { channel = 'can0', targetAddr, ids, timeoutMs = 2000, sourceAddr = 0xEF }) => {
+    const ts = await getClient(channel, sourceAddr);
+    return ts.paths_for_ids(targetAddr, ids, timeoutMs);
+});
+
+ipcMain.handle('ts-ids-for-paths', async (_e, { channel = 'can0', targetAddr, paths, timeoutMs = 2000, sourceAddr = 0xEF }) => {
+    const ts = await getClient(channel, sourceAddr);
+    return ts.ids_for_paths(targetAddr, paths, timeoutMs);
+});
+
+// =============================
+// Linux-only: setup SocketCAN (can0) via pkexec with GUI auth
+ipcMain.handle('can-setup-linux', async () => {
+    if (process.platform !== 'linux') {
+        throw new Error('can-setup-linux is only supported on Linux');
+    }
+    const scriptPath = path.join(__dirname, 'scripts', 'setup_can_linux.sh');
+    // Use pkexec for GUI privilege escalation; run script through bash to avoid exec-bit requirement
+    return new Promise((resolve, reject) => {
+        const child = spawn('pkexec', ['bash', scriptPath], {
+            env: process.env,
+            stdio: 'ignore'
+        });
+        child.on('error', (err) => reject(new Error(`pkexec failed: ${err.message}`)));
+        child.on('exit', (code) => {
+            if (code === 0) resolve('ok');
+            else reject(new Error(`pkexec exited with code ${code}`));
+        });
+    });
 });
