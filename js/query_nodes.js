@@ -184,9 +184,9 @@ async function exploreId(bus, nodeAddr, objId, depth = 0, maxDepth = 16) {
 }
 
 async function main() {
-  const nodesPath = path.join(process.cwd(), 'nodes.json');
+  const nodesPath = path.join(process.cwd(), 'thingset', 'nodes.json');
   const nodes = JSON.parse(fs.readFileSync(nodesPath, 'utf8'));
-  const outDir = path.join(process.cwd(), 'trees');
+  const outDir = path.join(process.cwd(), 'thingset');
   fs.mkdirSync(outDir, { recursive: true });
 
   const bus = await createBus({ channel: 'can0' });
@@ -201,7 +201,7 @@ async function main() {
       };
       const out = path.join(outDir, `node_${addr.toString(16).toUpperCase().padStart(2, '0')}_tree.json`);
       fs.writeFileSync(out, JSON.stringify(tree, null, 2), 'utf8');
-      console.log(`✅ Saved to ${out}`);
+      console.log(`✅ Saved to ${path.relative(process.cwd(), out)}`);
     }
   } finally {
     await bus.shutdown();
@@ -216,4 +216,3 @@ if (require.main === module) {
 module.exports = {
   exploreId,
 };
-

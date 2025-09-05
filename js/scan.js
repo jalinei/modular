@@ -44,9 +44,11 @@ async function scanNodes(channel = 'can0') {
       await new Promise((r) => setTimeout(r, 10));
     }
 
-    const outPath = path.join(process.cwd(), 'nodes.json');
+    const outDir = path.join(process.cwd(), 'thingset');
+    fs.mkdirSync(outDir, { recursive: true });
+    const outPath = path.join(outDir, 'nodes.json');
     fs.writeFileSync(outPath, JSON.stringify(foundNodes, null, 2), 'utf8');
-    console.log('✅ Nodes saved to nodes.json');
+    console.log(`✅ Nodes saved to ${path.relative(process.cwd(), outPath)}`);
   } finally {
     await bus.shutdown();
     console.log('✅ Scan complete.');
