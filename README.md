@@ -29,6 +29,35 @@ Modular is an Electron application built on top of [Freeboard](dashboard/README.
 
 Sample dashboard configurations can be found under [`test_dashboards`](test_dashboards/).
 
+## ThingSet over CAN
+
+JavaScript implementation of the CAN/ThingSet protocol under `js/`:
+
+- `js/ts_can_utils.js` – CAN ID builder and ISO‑TP response reassembly.
+- `js/thingset_bin.js` – ISO‑TP TX/RX and high‑level ThingSet client (`ThingSetCAN`).
+- `js/scan.js` – scans the bus for nodes by requesting `pNodeID`. Outputs a json file containing both used addressed on the bus and node IDs
+- `js/query_nodes.js` – recursively explores a node’s ThingSet tree and writes a JSON per device containing all its datanodes structure.
+- `js/can_adapter.js` – CAN bus wrapper: native SocketCAN on Linux; on Windows use `ffi-napi` to call a vendor driver (no built‑in CAN).
+
+Dependencies
+
+- Included in `package.json`: `socketcan` (Linux) and `cbor`.
+- Windows (optional): `ffi-napi` (+ `ref-napi`, vendor DLL) to bind a driver API.
+
+Install
+
+```bash
+npm install
+```
+
+Test commands
+
+- Scan the bus: `npm run scan:can`
+- Build node trees: `npm run ts:query`
+- Basic client test: `npm run ts:test`
+
+Windows support: use `ffi-napi` to bind your CAN vendor’s driver (e.g., Kvaser, PEAK PCAN, NI‑CAN) and implement the same `Bus` interface in `js/can_adapter.js` (`send`, `recv(timeoutMs)`, `shutdown`). No SocketCAN is required on Windows.
+
 ## Repository layout
 
 - `main.js` – Electron main process that handles serial ports and IPC.
