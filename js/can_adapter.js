@@ -53,7 +53,16 @@ class Queue {
 }
 
 async function createLinuxBus({ channel = 'can0' } = {}) {
-  const can = require('socketcan');
+  let can;
+  try {
+    can = require('socketcan');
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    throw new Error(
+      'SocketCAN module load failed. This usually means the native module was built for a different Node/Electron version. ' +
+      'Please rebuild native modules for Electron (see README or run: npx electron-rebuild -f -w socketcan).\nOriginal error: ' + msg
+    );
+  }
   const ch = can.createRawChannel(channel, true);
   const q = new Queue();
 

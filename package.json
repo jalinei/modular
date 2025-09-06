@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder",
+    "rebuild:native": "npx electron-rebuild -f -w socketcan",
     "scan:can": "node js/scan.js",
     "ts:query": "node js/query_nodes.js",
     "ts:test": "node js/test_ts_bin.js"

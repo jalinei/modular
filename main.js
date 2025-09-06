@@ -676,3 +676,17 @@ ipcMain.handle('can-setup-linux', async () => {
         });
     });
 });
+
+// Check if a CAN network interface exists and is up (no privileges required)
+ipcMain.handle('can-is-up', async (_e, { channel = 'can0' } = {}) => {
+    try {
+        const opPath = path.join('/sys/class/net', channel, 'operstate');
+        const stat = await fs.promises.stat(opPath).catch(() => null);
+        if (!stat) return { exists: false, up: false };
+        const state = (await fs.promises.readFile(opPath, 'utf8')).trim();
+        return { exists: true, up: state === 'up' };
+    } catch (e) {
+        // Fallback: assume not up on error
+        return { exists: false, up: false };
+    }
+});
