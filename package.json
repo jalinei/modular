@@ -7,9 +7,10 @@
     "start": "electron .",
     "dist": "electron-builder",
     "rebuild:native": "npx electron-rebuild -f -w socketcan",
-    "scan:can": "node js/scan.js",
-    "ts:query": "node js/query_nodes.js",
-    "ts:test": "node js/test_ts_bin.js"
+    "scan:can": "ELECTRON_RUN_AS_NODE=1 electron js/scan.js",
+    "ts:query": "ELECTRON_RUN_AS_NODE=1 electron js/query_nodes.js",
+    "ts:test": "ELECTRON_RUN_AS_NODE=1 electron js/test_ts_bin.js",
+    "ts:query:node": "npm rebuild socketcan --silent && node js/query_nodes.js"
   },
   "keywords": [],
   "author": "",
