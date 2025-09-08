@@ -190,9 +190,12 @@ ipcMain.handle('get-can-interfaces', async () => {
             const ifs = Object.keys(require('os').networkInterfaces());
             names.push(...ifs.filter(n => /^v?sl?can\d+/i.test(n) || /^can\d+/i.test(n)));
         }
+        // Ensure at least a sensible default
+        if (names.length === 0) names.push('can0');
         return names.map(n => ({ name: n, value: n }));
     } catch (e) {
-        return [];
+        // On error, still provide a default
+        return [{ name: 'can0', value: 'can0' }];
     }
 });
 

@@ -102,9 +102,13 @@
             if (!this.ipc) return;
             const ifs = await this.ipc.invoke('get-can-interfaces');
             this.canSelect.empty();
-            ifs.forEach(i => {
+            const list = (ifs && ifs.length) ? ifs : [{ name: 'can0', value: 'can0' }];
+            list.forEach(i => {
                 this.canSelect.append(`<option value="${i.value}">${i.name}</option>`);
             });
+            // Default select can0 if present
+            const hasCan0 = list.some(i => i.value === 'can0');
+            if (hasCan0) this.canSelect.val('can0');
         }
 
         async _refreshNodes() {
