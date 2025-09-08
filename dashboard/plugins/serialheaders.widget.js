@@ -88,6 +88,10 @@
                 if (dsType === 'fast_frame_datasource') {
                     const dataset = await this.ipc.invoke('get-fast-dataset', { path });
                     if (dataset && Array.isArray(dataset.series)) return dataset.series.length;
+                } else if (dsType === 'can_datasource') {
+                    // For CAN, size by existing headers array length (if any)
+                    const headers = await this.ipc.invoke('get-serial-headers', { path, type: dsType });
+                    if (Array.isArray(headers)) return headers.length;
                 } else {
                     const data = await this.ipc.invoke('get-serial-buffer', { path });
                     if (Array.isArray(data)) return data.length;
@@ -201,7 +205,7 @@
             list.forEach(ds => {
                 try {
                     const t = ds.type && ds.type();
-                    if (t === 'serialport_datasource' || t === 'fast_frame_datasource') {
+                    if (t === 'serialport_datasource' || t === 'fast_frame_datasource' || t === 'can_datasource') {
                         const name = ds.name();
                         this.dsSelect.append(`<option value="${name}">${name}</option>`);
                     }
