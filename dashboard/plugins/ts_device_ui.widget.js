@@ -164,7 +164,7 @@
 
   function DeviceUIWidget(settings) {
     let current = settings || {};
-    const root = $('<div class="d-flex flex-column h-100 gap-2" style="overflow:auto;"></div>');
+    const root = $('<div class="d-flex flex-column h-100 gap-2" style="min-height:0;"></div>');
 
     const controls = $('<div class="d-flex flex-wrap gap-1 align-items-center"></div>');
     const devSelect = $('<select class="form-select form-select-sm" style="max-width: 360px;"></select>');
@@ -172,7 +172,7 @@
     const btnScanBuild = $('<button class="btn btn-primary btn-sm">Scan + Build</button>');
     const filter = $('<input type="text" class="form-control form-control-sm" placeholder="Filter..." style="max-width: 240px;">');
     const status = $('<div class="small text-muted"></div>');
-    const contentWrap = $('<div class="flex-fill overflow-auto" style="min-height: 160px;"></div>');
+    const contentWrap = $('<div class="flex-fill" style="min-height:0; overflow:auto;"></div>');
     const content = $('<div></div>');
     contentWrap.append(content);
 
@@ -207,8 +207,10 @@
     }
 
     this.render = function (container) {
-      $(container).css({ overflow: 'auto' });
-      $(container).empty().append(root);
+      const $container = $(container);
+      // Ensure the widget itself fills its parent; scrolling happens in contentWrap
+      $container.css({ overflow: 'hidden' });
+      $container.empty().append(root);
       populateDevices(true);
       renderSelected();
 
