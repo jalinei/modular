@@ -89,6 +89,7 @@
                   });
                   if (cre && cre.status >= 0x80 && cre.status < 0xA0) {
                     btn.data('subscribed', true).text('unsubscribe').toggleClass('btn-outline-primary btn-outline-danger');
+                    saveUiSubscription(ctx.addr, fullPath, true);
                   } else {
                     btn.text('subscribe');
                   }
@@ -101,6 +102,7 @@
                   });
                   if (del && del.status >= 0x80 && del.status < 0xA0) {
                     btn.data('subscribed', false).text('subscribe').toggleClass('btn-outline-danger btn-outline-primary');
+                    saveUiSubscription(ctx.addr, fullPath, false);
                   } else {
                     btn.text('unsubscribe');
                   }
@@ -111,6 +113,12 @@
                 btn.prop('disabled', false);
               }
             });
+            // Initialize from saved state
+            try {
+              const fullPathInit = `${node.path}/${vk}`;
+              const savedSubbed = ctx?.uiState?.subscriptions && ctx.uiState.subscriptions[fullPathInit] === true;
+              if (savedSubbed) btn.data('subscribed', true).text('unsubscribe').toggleClass('btn-outline-primary btn-outline-danger');
+            } catch {}
             right.append(btn);
           }
 
@@ -216,6 +224,7 @@
               });
               if (cre && cre.status >= 0x80 && cre.status < 0xA0) {
                 btn.data('subscribed', true).text('unsubscribe').toggleClass('btn-outline-primary btn-outline-danger');
+                saveUiSubscription(ctx.addr, fullPath, true);
               } else {
                 btn.text('subscribe');
               }
@@ -228,6 +237,7 @@
               });
               if (del && del.status >= 0x80 && del.status < 0xA0) {
                 btn.data('subscribed', false).text('subscribe').toggleClass('btn-outline-danger btn-outline-primary');
+                saveUiSubscription(ctx.addr, fullPath, false);
               } else {
                 btn.text('unsubscribe');
               }
@@ -236,6 +246,11 @@
             // ignore
           } finally { btn.prop('disabled', false); }
         });
+        // Initialize from saved state
+        try {
+          const savedSubbed = ctx?.uiState?.subscriptions && ctx.uiState.subscriptions[node.path] === true;
+          if (savedSubbed) btn.data('subscribed', true).text('unsubscribe').toggleClass('btn-outline-primary btn-outline-danger');
+        } catch {}
         right.append(btn);
       }
       if (isWritable && node?.path && ctx?.ipc && ctx?.addr != null && ctx?.channel) {
@@ -274,6 +289,17 @@
       item.append(row);
     }
     return item;
+  }
+
+  function toBool(v) {
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'string') {
+      const s = v.trim().toLowerCase();
+      if (s === 'true' || s === '1' || s === 'yes' || s === 'on') return true;
+      if (s === 'false' || s === '0' || s === 'no' || s === 'off' || s === '') return false;
+    }
+    if (typeof v === 'number') return v !== 0;
+    return !!v;
   }
 
   function renderTree(rootNode, filterText = '', ctx) {
@@ -336,6 +362,63 @@
     return readJsonSafe(fp);
   }
 
+  function treeFilePathForAddr(addr) {
+    const dir = thingsetDir();
+    if (!dir) return null;
+    const hex = addr.toString(16).toUpperCase().padStart(2, '0');
+    return path.join(dir, `node_${hex}_tree.json`);
+  }
+
+  function writeTreeForAddr(addr, treeObj) {
+    try {
+      const fp = treeFilePathForAddr(addr);
+      if (!fp) return false;
+      fs.writeFileSync(fp, JSON.stringify(treeObj, null, 2), 'utf8');
+      return true;
+    } catch (e) {
+      console.warn('writeTreeForAddr failed:', e?.message || e);
+      return false;
+    }
+  }
+
+  function saveUiSubscription(addr, fullPath, subscribed) {
+    try {
+      const tree = readTreeForAddr(addr);
+      if (!tree || !tree.root) return false;
+      tree.root._ui = tree.root._ui || {};
+      tree.root._ui.subscriptions = tree.root._ui.subscriptions || {};
+      if (subscribed) tree.root._ui.subscriptions[fullPath] = true;
+      else delete tree.root._ui.subscriptions[fullPath];
+      return writeTreeForAddr(addr, tree);
+    } catch { return false; }
+  }
+
+  function findNodeByPathInTreeRoot(root, pathStr) {
+    if (!root || !pathStr) return null;
+    const segs = String(pathStr).split('/').filter(Boolean);
+    let cur = root;
+    for (const seg of segs) {
+      if (!cur.children || typeof cur.children !== 'object') return null;
+      cur = cur.children[seg];
+      if (!cur) return null;
+    }
+    return cur;
+  }
+
+  function saveNodeValue(addr, pathStr, value) {
+    try {
+      const tree = readTreeForAddr(addr);
+      if (!tree || !tree.root) return false;
+      const node = findNodeByPathInTreeRoot(tree.root, pathStr);
+      if (node) node.value = value;
+      // Mirror under _ui for quick reads
+      tree.root._ui = tree.root._ui || {};
+      tree.root._ui.reporting = tree.root._ui.reporting || {};
+      if (pathStr === '_Reporting/mLive/sEnable') tree.root._ui.reporting.sEnable = !!value;
+      return writeTreeForAddr(addr, tree);
+    } catch { return false; }
+  }
+
   freeboard.loadWidgetPlugin({
     type_name: 'thingset_device_ui',
     display_name: 'ThingSet Device UI',
@@ -355,6 +438,7 @@
     const controls = $('<div class="d-flex flex-wrap gap-1 align-items-center"></div>');
     const devSelect = $('<select class="form-select form-select-sm" style="max-width: 360px;"></select>');
     const btnRefresh = $('<button class="btn btn-secondary btn-sm">Reload</button>');
+    const btnToggleReporting = $('<button class="btn btn-outline-success btn-sm">Enable reporting</button>');
     const btnScanBuild = $('<button class="btn btn-primary btn-sm">Scan + Build</button>');
     const filter = $('<input type="text" class="form-control form-control-sm" placeholder="Filter..." style="max-width: 240px;">');
     const status = $('<div class="small text-muted"></div>');
@@ -367,6 +451,7 @@
       devSelect,
       btnRefresh,
       btnScanBuild,
+      btnToggleReporting,
       filter
     );
     root.append(controls, contentWrap, status);
@@ -380,6 +465,66 @@
       return devices;
     }
 
+    function findNodeByPath(root, pathStr) {
+      if (!root || !pathStr) return null;
+      const segs = String(pathStr).split('/').filter(Boolean);
+      let cur = root;
+      for (const seg of segs) {
+        if (!cur.children || typeof cur.children !== 'object') return null;
+        cur = cur.children[seg];
+        if (!cur) return null;
+      }
+      return cur;
+    }
+
+    function updateReportingButton(addr, tree) {
+      // Default disabled state when not available
+      btnToggleReporting.prop('disabled', true)
+        .removeClass('btn-success btn-outline-danger btn-outline-success')
+        .addClass('btn-outline-success')
+        .text('Enable reporting');
+
+      if (!addr || !tree || !tree.root) return;
+      const sEnableNode = findNodeByPath(tree.root, '_Reporting/mLive/sEnable');
+      if (!sEnableNode) return; // keep disabled if feature not present
+      const enabled = toBool(sEnableNode.value);
+      setReportingButtonState(enabled);
+    }
+
+    function setReportingButtonState(enabled) {
+      btnToggleReporting.prop('disabled', false)
+        .toggleClass('btn-outline-success', !enabled)
+        .toggleClass('btn-outline-danger', enabled)
+        .text(enabled ? 'Disable reporting' : 'Enable reporting')
+        .data('enabled', !!enabled);
+    }
+
+    function updateSenableValueInUI(enabled) {
+      try {
+        const pathBadge = content.find('span.badge.bg-light.text-dark').filter((i, el) => $(el).text() === '_Reporting/mLive/sEnable');
+        if (!pathBadge.length) return;
+        const row = pathBadge.closest('.d-flex.align-items-center.justify-content-between');
+        const codeEl = row.find('code').first();
+        if (codeEl && codeEl.length) codeEl.text(String(!!enabled));
+      } catch {}
+    }
+
+    async function toggleReporting(addr, channel, enable) {
+      if (!ipc || addr == null || !channel) return { ok: false };
+      try {
+        const resp = await ipc.invoke('ts-update', {
+          channel,
+          targetAddr: addr,
+          endpoint: '_Reporting/mLive',
+          values: { sEnable: !!enable }
+        });
+        const ok = resp && resp.status >= 0x80 && resp.status < 0xA0;
+        return { ok };
+      } catch (e) {
+        return { ok: false, error: e?.message || String(e) };
+      }
+    }
+
     function renderSelected() {
       const v = devSelect.val();
       if (!v) { content.empty(); status.text('Select a device.'); return; }
@@ -391,11 +536,14 @@
         const idStr = tree?.root?.children?.mLive?.id;
         if (typeof idStr === 'string' && idStr.startsWith('0x')) subsetId = parseInt(idStr, 16);
       } catch {}
-      const ctx = { ipc, channel: current.channel || 'can0', addr, subsetId };
+      const ctx = { ipc, channel: current.channel || 'can0', addr, subsetId, uiState: (tree?.root?._ui || {}) };
       const ui = renderTree(tree.root, filter.val(), ctx);
       content.empty().append(ui);
       const hex = `0x${addr.toString(16).toUpperCase().padStart(2, '0')}`;
       status.text(`Loaded ${hex} (${tree.node_uid || 'unknown uid'})`);
+
+      // Update reporting toggle button based on current tree
+      updateReportingButton(addr, tree);
     }
 
     this.render = function (container) {
@@ -417,6 +565,27 @@
         if (!res.ok) status.text(`Scan failed: ${res.reason || 'unknown error'}`);
         populateDevices();
         renderSelected();
+      });
+
+      btnToggleReporting.on('click', async () => {
+        const v = devSelect.val();
+        if (!v) return;
+        const addr = parseInt(v, 10);
+        const channel = current.channel || 'can0';
+        const willEnable = !(btnToggleReporting.data('enabled') === true);
+        btnToggleReporting.prop('disabled', true).text('Working…');
+      const res = await toggleReporting(addr, channel, willEnable);
+      if (res.ok) {
+        // Trust the requested state immediately and update button + inline value
+        const enabledNow = !!willEnable;
+        setReportingButtonState(enabledNow);
+        updateSenableValueInUI(enabledNow);
+        saveNodeValue(addr, '_Reporting/mLive/sEnable', enabledNow);
+      } else {
+          // On failure, restore previous label from data
+          const prevEnabled = btnToggleReporting.data('enabled') === true;
+          setReportingButtonState(prevEnabled);
+        }
       });
 
       devSelect.on('change', renderSelected);
