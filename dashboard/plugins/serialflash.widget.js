@@ -22,6 +22,8 @@
             this.useCanCbx = $('<input type="checkbox" class="form-check-input ms-2">');
             this.canSelect = $('<select class="form-select form-select-sm flex-fill" disabled></select>');
             this.refreshCanBtn = $('<button class="btn btn-secondary btn-sm" disabled>Refresh</button>');
+            this.nodeSelect = $('<select class="form-select form-select-sm flex-fill" disabled></select>');
+            this.refreshNodeBtn = $('<button class="btn btn-secondary btn-sm" disabled>Refresh</button>');
             this.fileLabel = $('<input type="text" class="form-control form-control-sm" readonly value="No file selected">');
             this.fileBtn = $('<button class="btn btn-secondary btn-sm">Browse</button>');
             this.selectedFilePath = null;
@@ -36,8 +38,10 @@
         render(el) {
             this._refreshPorts();
             this._refreshCan();
+            this._refreshNodes();
             this.refreshBtn.on('click', () => this._refreshPorts());
             this.refreshCanBtn.on('click', () => this._refreshCan());
+            this.refreshNodeBtn.on('click', () => this._refreshNodes());
             $(el).append(this.container);
             const modeRow = $('<div class="input-group input-group-sm mb-1 align-items-center"></div>');
             modeRow.append('<span class="input-group-text">Mode</span>');
@@ -52,15 +56,20 @@
             const canRow = $('<div class="input-group input-group-sm mb-1"></div>');
             canRow.append('<span class="input-group-text">CAN Interface</span>', this.canSelect, this.refreshCanBtn);
 
+            const nodeRow = $('<div class="input-group input-group-sm mb-1"></div>');
+            nodeRow.append('<span class="input-group-text">Target Node</span>', this.nodeSelect, this.refreshNodeBtn);
+
             const fileRow = $('<div class="input-group input-group-sm mb-1"></div>');
             fileRow.append(this.fileBtn, this.fileLabel);
-            this.container.append(modeRow, portRow, canRow, fileRow, this.startBtn, this.cancelBtn, this.progressWrapper, this.logArea);
+            this.container.append(modeRow, portRow, canRow, nodeRow, fileRow, this.startBtn, this.cancelBtn, this.progressWrapper, this.logArea);
 
             // Toggle enable/disable rows
             const updateModeUI = () => {
                 const useCan = this.useCanCbx.is(':checked');
                 this.canSelect.prop('disabled', !useCan);
                 this.refreshCanBtn.prop('disabled', !useCan);
+                this.nodeSelect.prop('disabled', !useCan);
+                this.refreshNodeBtn.prop('disabled', !useCan);
                 this.portSelect.prop('disabled', useCan);
                 this.refreshBtn.prop('disabled', useCan);
             };
@@ -98,19 +107,30 @@
             });
         }
 
+        async _refreshNodes() {
+            if (!this.ipc) return;
+            const nodes = await this.ipc.invoke('get-thingset-nodes');
+            this.nodeSelect.empty();
+            nodes.forEach(n => {
+                this.nodeSelect.append(`<option value="${n.value}">${n.name}</option>`);
+            });
+        }
+
         _startFlash() {
             const filePath = this.selectedFilePath;
             const useCan = this.useCanCbx.is(':checked');
             const port = this.portSelect.val();
             const canIf = this.canSelect.val();
+            const nodeAddrStr = this.nodeSelect.val();
+            const nodeAddr = nodeAddrStr ? parseInt(nodeAddrStr, 10) : NaN;
 
             if (!this.ipc) {
                 this.logArea.val('Error: IPC unavailable.\n').show();
                 return;
             }
 
-            if (!filePath || (!useCan && !port) || (useCan && !canIf)) {
-                const msg = useCan ? 'Please select a firmware file and a CAN interface.' : 'Please select both a firmware file and a port.';
+            if (!filePath || (!useCan && !port) || (useCan && (!canIf || isNaN(nodeAddr)))) {
+                const msg = useCan ? 'Please select a firmware file, a CAN interface, and a target node.' : 'Please select both a firmware file and a port.';
                 this.logArea.val(msg + '\n').show();
                 return;
             }
@@ -123,7 +143,7 @@
             this.cancelBtn.show();
             this.selectedFilePath = filePath;
             if (useCan) {
-                this.ipc.invoke('start-flash-can', { channel: canIf, filename: filePath });
+                this.ipc.invoke('start-flash-can', { channel: canIf, filename: filePath, target: nodeAddr });
             } else {
                 this.ipc.invoke('start-flash', { comPort: port, firmwarePath: filePath });
             }

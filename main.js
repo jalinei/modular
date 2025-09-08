@@ -182,17 +182,8 @@ ipcMain.handle('get-can-interfaces', async () => {
             if (!e.isDirectory()) continue;
             const n = e.name;
             if (!/^v?sl?can\d+/i.test(n) && !/^can\d+/i.test(n)) continue;
-            // Validate by checking type (ARPHRD_CAN = 280) or existence of 'can' folder
-            let ok = false;
-            try {
-                const t = await fs.promises.readFile(path.join(base, n, 'type'), 'utf8');
-                if (parseInt(t.trim(), 10) === 280) ok = true;
-            } catch {}
-            try {
-                const st = await fs.promises.stat(path.join(base, n, 'can'));
-                if (st && st.isDirectory()) ok = true;
-            } catch {}
-            if (ok) names.push(n);
+            // Be permissive: include likely CAN interface names
+            names.push(n);
         }
         // Fallback: try os.networkInterfaces heuristic
         if (names.length === 0) {
@@ -201,6 +192,27 @@ ipcMain.handle('get-can-interfaces', async () => {
         }
         return names.map(n => ({ name: n, value: n }));
     } catch (e) {
+        return [];
+    }
+});
+
+// 📖 Read discovered ThingSet nodes from thingset/nodes.json
+ipcMain.handle('get-thingset-nodes', async () => {
+    try {
+        const file = path.join(process.cwd(), 'thingset', 'nodes.json');
+        const text = await fs.promises.readFile(file, 'utf8');
+        const obj = JSON.parse(text || '{}');
+        const out = [];
+        for (const [k, v] of Object.entries(obj)) {
+            const addr = parseInt(k, 10);
+            const hex = '0x' + addr.toString(16).toUpperCase().padStart(2, '0');
+            const label = typeof v !== 'undefined' ? `${hex} (${v})` : hex;
+            out.push({ name: label, value: addr });
+        }
+        // Sort by address
+        out.sort((a, b) => a.value - b.value);
+        return out;
+    } catch {
         return [];
     }
 });
