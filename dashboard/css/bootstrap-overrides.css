@@ -9,3 +9,39 @@ textarea.form-control {
   display: block;
   height: auto;
 }
+
+/* Freeboard/Gridster overrides to keep widgets scrollable within their box */
+/* Make the widget content area (section) fill the pane below the 30px header */
+.gridster .gs_w { position: relative; }
+.gridster section { position: absolute; top: 30px; bottom: 0; left: 0; right: 0; overflow: hidden; }
+.gridster section .sub-section { height: 100%; }
+.gridster section .sub-section .widget { height: 100%; }
+
+/* Help flex children inside widgets scroll correctly */
+.gridster section .sub-section .widget .flex-fill { min-height: 0; }
+
+/*
+ * Fix Freeboard toolbar hover alignment while keeping Bootstrap typography.
+ * Bootstrap's default line-height causes the text label to sit higher than
+ * the LI background area defined by Freeboard. Switch the toolbar items to
+ * flex alignment and remove negative label margins so the hover background
+ * aligns exactly with the text/icon content.
+ */
+.board-toolbar li {
+  height: auto !important;       /* avoid fixed 14px height fighting line-height */
+  line-height: 14px;             /* preserve intended visual height */
+  display: inline-flex;          /* align icon + label vertically */
+  align-items: center;
+}
+.board-toolbar li i {
+  float: none !important;        /* let flex layout handle positioning */
+}
+.board-toolbar li label {
+  margin: 0 0 0 5px !important;  /* keep left gap, drop negative margins */
+  line-height: 14px;             /* match container */
+  display: inline-block;
+}
+/* Keep vertical toolbars stacking items vertically */
+.board-toolbar.vertical li {
+  display: flex !important;      /* block-level flex so items stack */
+}
