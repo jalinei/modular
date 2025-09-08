@@ -8,6 +8,7 @@ const { spawn } = require('child_process');
 const { createBus } = require('./js/can_adapter');
 const { ThingSetCAN } = require('./js/thingset_bin');
 const { scanNodes: scanCanNodes } = require('./js/scan');
+const { CanBroadcastAggregator } = require('./js/can_broadcast_aggregator');
 const { exploreId } = require('./js/query_nodes');
 
 let mainWindow; // reference to the main BrowserWindow
@@ -530,6 +531,7 @@ ipcMain.handle('is-serial-port-open', async (_event, { path }) => {
 
 const canBuses = new Map(); // key: channel name (e.g., 'can0') -> bus
 const tsClients = new Map(); // key: channel -> ThingSetCAN (source 0xEF)
+const canAggregators = new Map(); // key: channel -> CanBroadcastAggregator
 
 function ensureThingsetDir() {
     const dir = path.join(process.cwd(), 'thingset');
@@ -553,6 +555,11 @@ ipcMain.handle('can-close', async (_event, { channel = 'can0' } = {}) => {
     try { await bus.shutdown(); } finally {
         canBuses.delete(channel);
         tsClients.delete(channel);
+        const ag = canAggregators.get(channel);
+        if (ag) {
+            try { ag.stop(); } catch {}
+            canAggregators.delete(channel);
+        }
     }
     return 'closed';
 });
@@ -652,6 +659,46 @@ ipcMain.handle('ts-paths-for-ids', async (_e, { channel = 'can0', targetAddr, id
 ipcMain.handle('ts-ids-for-paths', async (_e, { channel = 'can0', targetAddr, paths, timeoutMs = 2000, sourceAddr = 0xEF }) => {
     const ts = await getClient(channel, sourceAddr);
     return ts.ids_for_paths(targetAddr, paths, timeoutMs);
+});
+
+// =============================
+// CAN broadcast aggregator IPC
+// =============================
+
+ipcMain.handle('can-aggregate-start', async (_e, { channel = 'can0' } = {}) => {
+    // Ensure bus exists
+    if (!canBuses.has(channel)) {
+        const bus = await createBus({ channel });
+        canBuses.set(channel, bus);
+    }
+    let ag = canAggregators.get(channel);
+    if (!ag) {
+        ag = new CanBroadcastAggregator(canBuses.get(channel), { channel });
+        canAggregators.set(channel, ag);
+    }
+    ag.start();
+    return 'ok';
+});
+
+ipcMain.handle('can-aggregate-set-debug', async (_e, { channel = 'can0', enable = true } = {}) => {
+    const ag = canAggregators.get(channel);
+    if (!ag) return 'not-running';
+    ag.setDebug(!!enable);
+    return 'ok';
+});
+
+ipcMain.handle('can-aggregate-stop', async (_e, { channel = 'can0' } = {}) => {
+    const ag = canAggregators.get(channel);
+    if (!ag) return 'not-running';
+    ag.stop();
+    canAggregators.delete(channel);
+    return 'stopped';
+});
+
+ipcMain.handle('can-aggregate-snapshot', async (_e, { channel = 'can0' } = {}) => {
+    const ag = canAggregators.get(channel);
+    if (!ag) return { channel, nodes: {} };
+    return ag.getSnapshot();
 });
 
 // =============================

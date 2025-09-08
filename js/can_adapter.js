@@ -101,6 +101,19 @@ async function createLinuxBus({ channel = 'can0' } = {}) {
         else if (typeof ch.removeAllListeners === 'function') ch.removeAllListeners('onMessage');
       } catch { /* ignore */ }
     },
+    // Expose lightweight event subscription passthrough for listeners (e.g., aggregators)
+    addListener(evt, handler) {
+      if (evt !== 'onMessage' || typeof handler !== 'function') return;
+      if (typeof ch.addListener === 'function') ch.addListener('onMessage', handler);
+      else if (typeof ch.on === 'function') ch.on('onMessage', handler);
+    },
+    removeListener(evt, handler) {
+      if (evt !== 'onMessage' || typeof handler !== 'function') return;
+      if (typeof ch.removeListener === 'function') ch.removeListener('onMessage', handler);
+      else if (typeof ch.off === 'function') ch.off('onMessage', handler);
+    },
+    on(evt, handler) { this.addListener(evt, handler); },
+    off(evt, handler) { this.removeListener(evt, handler); },
   };
 }
 

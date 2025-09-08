@@ -1,8 +1,6 @@
 (function () {
   const ipcRenderer = window.require?.('electron')?.ipcRenderer;
   const isLinux = navigator.userAgent.toLowerCase().includes('linux');
-  // Shared options array reference for the settings UI; mutated after setup+scan.
-  const deviceOptionsRef = [];
 
   async function setupCanIfLinux(channel) {
     if (!ipcRenderer) return;
@@ -14,21 +12,15 @@
     }
   }
 
-  async function scanDevices(channel) {
-    if (!ipcRenderer) return [];
+  async function scanAndBuildTrees(channel) {
+    if (!ipcRenderer) return;
     try {
-      const res = await ipcRenderer.invoke('can-scan-nodes', { channel });
-      const nodes = res?.nodes || {};
-      const options = Object.keys(nodes).map((addrStr) => {
-        const addr = parseInt(addrStr, 10);
-        const label = `0x${addr.toString(16).toUpperCase().padStart(2, '0')} — ${nodes[addrStr]}`;
-        return { name: label, value: addr };
-      });
-      options.sort((a, b) => a.value - b.value);
-      return options;
+      // Scan writes thingset/nodes.json
+      await ipcRenderer.invoke('can-scan-nodes', { channel });
+      // Build ThingSet trees per node so aggregator can map IDs to paths
+      await ipcRenderer.invoke('can-build-trees', { channel, maxDepth: 16 });
     } catch (e) {
-      console.error('CAN scan failed:', e);
-      return [];
+      console.warn('CAN scan/build trees failed:', e?.message || e);
     }
   }
 
@@ -36,6 +28,7 @@
     let currentSettings = settings;
     let timer = null;
     let deviceMeta = null;
+    let lastSelectedAddr = null;
 
     async function ensureOpen() {
       if (!ipcRenderer) return;
@@ -47,14 +40,82 @@
     }
 
     async function poll() {
-      // For now, output selected device info and a timestamp heartbeat
-      const out = {
-        channel: currentSettings.channel || 'can0',
-        targetAddr: currentSettings.targetAddr || null,
-        device_uid: deviceMeta?.uid || null,
-        numeric_value: Date.now(),
+      const ch = currentSettings.channel || 'can0';
+      const now = new Date();
+      let data = {
+        numeric_value: now.getTime(),
+        full_string_value: now.toLocaleString()
       };
-      updateCallback(out);
+      try {
+        if (ipcRenderer) {
+          const snap = await ipcRenderer.invoke('can-aggregate-snapshot', { channel: ch });
+          const nodes = snap?.nodes || {};
+          const nodeKeys = Object.keys(nodes);
+
+          // Always expose per-device objects: data['0xNN'] = { rV1Low_V: val, ... }
+          for (const [addrHex, node] of Object.entries(nodes)) {
+            if (!node || !node.flat) continue;
+            const map = {};
+            for (const [path, val] of Object.entries(node.flat)) {
+              if (typeof val !== 'number' || !isFinite(val)) continue;
+              const leaf = typeof path === 'string' && path.includes('/') ? path.split('/').pop() : String(path);
+              map[leaf] = val;
+            }
+            data[addrHex] = map;
+          }
+
+          if (nodeKeys.length) {
+            // Resolve target device for serial-like y1..yN view
+            let sel = (currentSettings.device || currentSettings.deviceAddr || 'auto');
+            sel = typeof sel === 'string' ? sel.trim() : sel;
+            let targetKey = null;
+            if (typeof sel === 'string' && sel.toLowerCase() !== 'auto') {
+              // Accept '0xNN' hex or decimal address
+              let addrNum = null;
+              if (/^0x[0-9a-f]+$/i.test(sel)) addrNum = parseInt(sel, 16);
+              else if (/^\d+$/.test(sel)) addrNum = parseInt(sel, 10);
+              if (Number.isFinite(addrNum)) {
+                const hex = `0x${addrNum.toString(16).toUpperCase().padStart(2, '0')}`;
+                if (nodes[hex]) targetKey = hex;
+              }
+            }
+            if (!targetKey) targetKey = nodeKeys[0];
+            lastSelectedAddr = targetKey;
+
+            const node = nodes[targetKey] || {};
+            const entries = Object.entries(node.flat || {});
+            // Stable order by key to keep channel indices consistent across polls
+            entries.sort((a, b) => a[0].localeCompare(b[0]));
+            const y = [];
+            const labels = [];
+            for (const [path, val] of entries) {
+              if (typeof val !== 'number' || !isFinite(val)) continue;
+              y.push(val);
+              const leaf = typeof path === 'string' && path.includes('/') ? path.split('/').pop() : String(path);
+              labels.push(leaf);
+            }
+            // Serial-like fields y1..yN + keep { y, labels } for widgets that use them
+            for (let i = 0; i < y.length; i++) data[`y${i + 1}`] = y[i];
+            data.y = y;
+            data.labels = labels;
+            data.device = targetKey;
+          }
+        }
+      } catch (e) {
+        console.warn('poll aggregate failed:', e?.message || e);
+      }
+
+      try {
+        if (currentSettings && currentSettings.debug) {
+          // Expose last payload for quick inspection from DevTools
+          window.__CAN_DS_LAST__ = data;
+          // Log concise summary
+          const keys = Object.keys(data).filter(k => /^y\d+$/.test(k));
+          console.log('[CAN DS]', 'device=', data.device || 'n/a', 'channels=', keys.length, data);
+        }
+      } catch {}
+
+      updateCallback(data);
     }
 
     function stopTimer() {
@@ -82,45 +143,48 @@
       currentSettings = newSettings;
       await ensureOpen();
       updateTimer();
+      try {
+        if (ipcRenderer) {
+          const ch = currentSettings.channel || 'can0';
+          await ipcRenderer.invoke('can-aggregate-set-debug', { channel: ch, enable: !!currentSettings.debug });
+        }
+      } catch (e) {
+        console.warn('set debug failed:', e?.message || e);
+      }
     };
 
     (async () => {
       const ch = currentSettings.channel || 'can0';
       await setupCanIfLinux(ch);
       await ensureOpen();
-      // After interface is up, scan and mutate the shared options so the editor sees devices next time it's opened.
+      // Scan nodes and build trees to enable id->path mapping, then start aggregator
+      await scanAndBuildTrees(ch);
       try {
-        const opts = await scanDevices(ch);
-        deviceOptionsRef.splice(0, deviceOptionsRef.length, ...opts);
-        // Extra step: build ThingSet trees for found devices, same as `npm run ts:query`.
-        try {
-          await ipcRenderer.invoke('can-build-trees', { channel: ch, maxDepth: 16 });
-        } catch (e) {
-          console.warn('ThingSet query/build failed:', e?.message || e);
-        }
-      } catch {}
+        await ipcRenderer.invoke('can-aggregate-start', { channel: ch });
+      } catch (e) {
+        console.warn('CAN aggregate start failed:', e?.message || e);
+      }
+      try {
+        await ipcRenderer.invoke('can-aggregate-set-debug', { channel: ch, enable: !!currentSettings.debug });
+      } catch (e) {
+        /* ignore */
+      }
       updateTimer();
     })();
   }
 
   async function registerPlugin() {
     const channelDefault = 'can0';
-    // Do not scan at startup. Options start empty and will be filled after the datasource sets up CAN.
 
     freeboard.loadDatasourcePlugin({
       type_name: 'can_datasource',
       display_name: 'ThingSet CAN',
-      description: 'Sets up SocketCAN, scans the bus, and lets you pick a device',
+      description: 'Reads ThingSet CAN broadcasts and exposes serial-like y1..yN for a selected device',
       settings: [
         { name: 'channel', display_name: 'Channel', type: 'text', default_value: channelDefault },
-        {
-          name: 'targetAddr',
-          display_name: 'Device',
-          type: 'option',
-          options: deviceOptionsRef,
-          description: 'Click Create to setup CAN, then reopen to pick a device.',
-        },
+        { name: 'device', display_name: 'Device (hex addr or "auto")', type: 'text', default_value: 'auto' },
         { name: 'refresh', display_name: 'Refresh Every', type: 'number', suffix: 'ms', default_value: 1000 },
+        { name: 'debug', display_name: 'Debug logs', type: 'boolean', default_value: false },
       ],
       newInstance: function (settings, newInstanceCallback, updateCallback) {
         newInstanceCallback(new CanDatasource(settings, updateCallback));
