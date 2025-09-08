@@ -8,9 +8,11 @@
 const cbor = require('cbor');
 
 function makeCanId(targetAddr, sourceAddr) {
+  // ThingSet type 0x0 (request/response) layout with bus numbers = 0
   const priority = 0x6 << 26;
-  const frameType = 0x0 << 24;
-  return (priority | frameType | ((targetAddr & 0xff) << 8) | (sourceAddr & 0xff)) >>> 0;
+  const type = 0x0 << 24;
+  const buses = 0x00 << 16; // target/source bus = 0
+  return (priority | type | buses | ((targetAddr & 0xff) << 8) | (sourceAddr & 0xff)) >>> 0;
 }
 
 const STATUS_TEXT = {

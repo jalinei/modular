@@ -4,9 +4,17 @@
 'use strict';
 
 function makeCanId(targetAddr, sourceAddr) {
+  // ThingSet type 0x0 (request/response) ID layout per spec:
+  // Bits 28..26: priority = 0x6
+  // Bits 25..24: type = 0x0
+  // Bits 23..20: target bus = 0x0 (single bus)
+  // Bits 19..16: source bus = 0x0 (single bus)
+  // Bits 15..8:  target address
+  // Bits 7..0:   source address
   const priority = 0x6 << 26;
-  const frameType = 0x0 << 24;
-  return (priority | frameType | ((targetAddr & 0xff) << 8) | (sourceAddr & 0xff)) >>> 0;
+  const type = 0x0 << 24;
+  const buses = 0x00 << 16; // both bus numbers 0
+  return (priority | type | buses | ((targetAddr & 0xff) << 8) | (sourceAddr & 0xff)) >>> 0;
 }
 
 async function sendFlowControl(bus, ourAddr, nodeAddr, blockSize = 0x00, stmin = 0x00) {

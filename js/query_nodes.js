@@ -21,24 +21,35 @@ async function sendSF(bus, targetAddr, payload) {
   await bus.send({ arbitration_id: id, data: sf, is_extended_id: true });
 }
 
+function parseTs(resp) {
+  // ThingSet response format: [status][CBOR node-id][CBOR payload]
+  // We must decode all CBOR objects after the first status byte, then take the payload (index 1)
+  if (!resp || resp.length < 2) return { status: 0xA0, payload: null };
+  try {
+    const objs = cbor.decodeAllSync(resp.slice(1));
+    const payload = objs.length > 1 ? objs[1] : null;
+    return { status: resp[0] | 0, payload };
+  } catch {
+    return { status: resp[0] | 0, payload: null };
+  }
+}
+
 async function tsFetchIds(bus, nodeAddr, parentId) {
   // 0x05 + CBOR(parentId) + 0xF6 → [child IDs]
   const req = Buffer.concat([Buffer.from([0x05]), cbor.encode(parentId), Buffer.from([0xF6])]);
   await sendSF(bus, nodeAddr, req);
   const resp = await recvIsoTpResponse(bus, nodeAddr, ECU_ADDR, 30, 3000);
-  if (!resp || resp.length < 3 || resp[0] !== 0x85) return [];
-  try {
-    const out = cbor.decodeFirstSync(resp.slice(2));
-    return Array.isArray(out) ? out : [];
-  } catch { return []; }
+  if (!resp) return [];
+  const { payload } = parseTs(resp);
+  return Array.isArray(payload) ? payload : [];
 }
 
 async function tsGetById(bus, nodeAddr, objOrParentId) {
   const req = Buffer.concat([Buffer.from([0x01]), cbor.encode(objOrParentId)]);
   await sendSF(bus, nodeAddr, req);
   const resp = await recvIsoTpResponse(bus, nodeAddr, ECU_ADDR, 30, 3000);
-  if (!resp || resp.length < 3 || resp[0] !== 0x85) return null;
-  try { return cbor.decodeFirstSync(resp.slice(2)); } catch { return null; }
+  if (!resp) return null;
+  return parseTs(resp).payload;
 }
 
 async function tsGetRecord(bus, nodeAddr, parentId, index) {
@@ -46,11 +57,9 @@ async function tsGetRecord(bus, nodeAddr, parentId, index) {
   if (req.length > 7) return null;
   await sendSF(bus, nodeAddr, req);
   const resp = await recvIsoTpResponse(bus, nodeAddr, ECU_ADDR, 30, 3000);
-  if (!resp || resp.length < 3 || resp[0] !== 0x85) return null;
-  try {
-    const val = cbor.decodeFirstSync(resp.slice(2));
-    return (val && typeof val === 'object' && !Array.isArray(val)) ? val : null;
-  } catch { return null; }
+  if (!resp) return null;
+  const val = parseTs(resp).payload;
+  return (val && typeof val === 'object' && !Array.isArray(val)) ? val : null;
 }
 
 async function tsPathsForIds(bus, nodeAddr, ids) {
@@ -68,15 +77,53 @@ async function tsPathsForIds(bus, nodeAddr, ids) {
     if (bestN === 0) { i += 1; continue; }
     await sendSF(bus, nodeAddr, bestPayload);
     const resp = await recvIsoTpResponse(bus, nodeAddr, ECU_ADDR, 30, 3000);
-    if (resp && resp.length >= 3 && resp[0] === 0x85) {
-      try {
-        const arr = cbor.decodeFirstSync(resp.slice(2));
+    if (resp) {
+      const { payload: arr } = parseTs(resp);
+      if (Array.isArray(arr)) {
         for (let k = 0; k < arr.length; k++) results[i + k] = (typeof arr[k] === 'string') ? arr[k] : null;
-      } catch { /* ignore */ }
+      }
     }
     i += bestN;
   }
   return results;
+}
+
+async function tsIdsForPaths(bus, nodeAddr, paths) {
+  // Batches of 1 to keep SF payload <=7 bytes
+  const ids = new Array(paths.length).fill(null);
+  let i = 0;
+  while (i < paths.length) {
+    const path = paths[i];
+    const payload = Buffer.concat([Buffer.from([0x05]), cbor.encode(0x16), cbor.encode([path])]);
+    if (payload.length > 7) {
+      // If even a single path exceeds SF, we cannot send with this lightweight adapter
+      // Leave as null
+      i += 1;
+      continue;
+    }
+    await sendSF(bus, nodeAddr, payload);
+    const resp = await recvIsoTpResponse(bus, nodeAddr, ECU_ADDR, 30, 3000);
+    if (resp) {
+      const { payload } = parseTs(resp);
+      if (Array.isArray(payload) && payload.length > 0 && Number.isInteger(payload[0])) ids[i] = payload[0];
+    }
+    i += 1;
+  }
+  return ids;
+}
+
+async function tsFetchRootChildIdsByPath(bus, nodeAddr) {
+  // FETCH on empty path with null → list of child names (strings)
+  const req = Buffer.concat([Buffer.from([0x05]), cbor.encode(''), Buffer.from([0xF6])]);
+  if (req.length > 7) return [];
+  await sendSF(bus, nodeAddr, req);
+  const resp = await recvIsoTpResponse(bus, nodeAddr, ECU_ADDR, 30, 3000);
+  if (!resp) return [];
+  const { payload } = parseTs(resp);
+  if (!Array.isArray(payload)) return [];
+  const names = payload.filter((s) => typeof s === 'string');
+  const ids = await tsIdsForPaths(bus, nodeAddr, names);
+  return ids.filter((x) => Number.isInteger(x));
 }
 
 function sanitize(obj) {
@@ -138,7 +185,11 @@ async function exploreId(bus, nodeAddr, objId, depth = 0, maxDepth = 16) {
 
   if (depth >= maxDepth) { node.note = `max_depth ${maxDepth} reached`; return node; }
 
-  const childrenIds = await tsFetchIds(bus, nodeAddr, objId);
+  let childrenIds = await tsFetchIds(bus, nodeAddr, objId);
+  // Fallback: some devices do not support numeric FETCH at root
+  if (childrenIds.length === 0 && objId === 0x00) {
+    childrenIds = await tsFetchRootChildIdsByPath(bus, nodeAddr);
+  }
   if (!childrenIds || childrenIds.length === 0) {
     const val = await tsGetById(bus, nodeAddr, objId);
     node.value = sanitize(val);
