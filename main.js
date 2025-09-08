@@ -575,10 +575,8 @@ ipcMain.handle('can-scan-nodes', async (_event, { channel = 'can0' } = {}) => {
 // Build ThingSet tree files for provided nodes or from thingset/nodes.json; returns a summary
 ipcMain.handle('can-build-trees', async (_event, { channel = 'can0', nodes = null, maxDepth = 16 } = {}) => {
     ensureThingsetDir();
-    // Use existing or temporary bus
-    let bus = canBuses.get(channel);
-    let created = false;
-    if (!bus) { bus = await createBus({ channel }); created = true; }
+    // Always use a dedicated bus for tree building to avoid interference
+    const bus = await createBus({ channel });
     const results = [];
     try {
         let mapping = nodes;
@@ -600,7 +598,7 @@ ipcMain.handle('can-build-trees', async (_event, { channel = 'can0', nodes = nul
             results.push({ addr, out });
         }
     } finally {
-        if (created) await bus.shutdown();
+        await bus.shutdown();
     }
     return { written: results };
 });

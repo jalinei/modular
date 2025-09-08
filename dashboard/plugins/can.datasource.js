@@ -92,6 +92,12 @@
       try {
         const opts = await scanDevices(ch);
         deviceOptionsRef.splice(0, deviceOptionsRef.length, ...opts);
+        // Extra step: build ThingSet trees for found devices, same as `npm run ts:query`.
+        try {
+          await ipcRenderer.invoke('can-build-trees', { channel: ch, maxDepth: 16 });
+        } catch (e) {
+          console.warn('ThingSet query/build failed:', e?.message || e);
+        }
       } catch {}
       updateTimer();
     })();
