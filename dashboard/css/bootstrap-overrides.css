@@ -10,6 +10,58 @@ textarea.form-control {
   height: auto;
 }
 
+/* Harmonize Freeboard modal form rows with Bootstrap */
+#modal_overlay .form-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px; /* slightly increase spacing between rows */
+}
+
+#modal_overlay .form-label {
+  /* Neutralize Bootstrap's .form-label and Freeboard floats */
+  float: none;
+  height: auto;
+  width: 160px;
+  padding: 0 14px 0 0;
+  text-align: right;
+  margin: 0;
+  display: block;
+}
+
+#modal_overlay .form-label .control-label {
+  margin: 0; /* avoid extra vertical spacing from bootstrap */
+}
+
+#modal_overlay .form-value {
+  float: none;
+  flex: 1 1 auto;
+  min-width: 0; /* allow contents to shrink without overflow */
+}
+
+/* Keep inputs/selects visually aligned with labels */
+#modal_overlay .form-value > input[type="text"],
+#modal_overlay .form-value .styled-select > select,
+#modal_overlay .form-value > select {
+  height: 30px;
+}
+
+#modal_overlay .form-value .input-suffix {
+  line-height: 30px;
+}
+
+/* Toggle alignment in rows */
+#modal_overlay .form-value .onoffswitch {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Ensure textareas match 30px input height inside modal */
+#modal_overlay textarea,
+#modal_overlay textarea.calculated-value-input {
+  height: 30px !important;
+  line-height: 30px;
+}
+
 /* Freeboard/Gridster overrides to keep widgets scrollable within their box */
 /* Make the widget content area (section) fill the pane below the 30px header */
 .gridster .gs_w { position: relative; }
