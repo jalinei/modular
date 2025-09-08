@@ -29,7 +29,7 @@
     return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  function renderNodeItem(key, node) {
+  function renderNodeItem(key, node, ctx) {
     const item = $('<div class="mb-1"></div>');
 
     // Group children
@@ -53,7 +53,107 @@
       if (hasValues) {
         const tbl = $('<div class="mb-1"></div>');
         for (const [vk, vv] of Object.entries(node.values)) {
-          tbl.append(`<div class="d-flex justify-content-between"><span>${escapeHtml(vk)}</span><span>${valueToInline(vv)}</span></div>`);
+          const row = $('<div class="d-flex align-items-center justify-content-between gap-2"></div>');
+          const left = $(`<span>${escapeHtml(vk)}</span>`);
+          const right = $('<span class="d-flex align-items-center gap-2"></span>');
+          right.append($(valueToInline(vv)));
+
+          const isReadable = typeof vk === 'string' && vk.startsWith('r');
+          const isWritable = typeof vk === 'string' && vk.startsWith('w');
+
+          if (isReadable && ctx?.ipc && ctx?.addr != null && ctx?.channel) {
+            const btn = $('<button class="btn btn-outline-primary btn-sm">subscribe</button>');
+            btn.on('click', async () => {
+              try {
+                btn.prop('disabled', true).text('working…');
+                const fullPath = `${node.path}/${vk}`;
+                // Resolve subset ID per device if not cached in context
+                if (ctx.subsetId == null) {
+                  try {
+                    const subResp = await ctx.ipc.invoke('ts-ids-for-paths', {
+                      channel: ctx.channel,
+                      targetAddr: ctx.addr,
+                      paths: ['mLive']
+                    });
+                    const sid = Array.isArray(subResp?.payload) ? subResp.payload[0] : null;
+                    if (Number.isInteger(sid)) ctx.subsetId = sid;
+                  } catch {}
+                }
+                const subscribed = btn.data('subscribed') === true;
+                if (!subscribed) {
+                  const cre = await ctx.ipc.invoke('ts-create', {
+                    channel: ctx.channel,
+                    targetAddr: ctx.addr,
+                    endpoint: (ctx.subsetId != null ? ctx.subsetId : 'mLive'),
+                    value: fullPath
+                  });
+                  if (cre && cre.status >= 0x80 && cre.status < 0xA0) {
+                    btn.data('subscribed', true).text('unsubscribe').toggleClass('btn-outline-primary btn-outline-danger');
+                  } else {
+                    btn.text('subscribe');
+                  }
+                } else {
+                  const del = await ctx.ipc.invoke('ts-delete', {
+                    channel: ctx.channel,
+                    targetAddr: ctx.addr,
+                    endpoint: (ctx.subsetId != null ? ctx.subsetId : 'mLive'),
+                    value: fullPath
+                  });
+                  if (del && del.status >= 0x80 && del.status < 0xA0) {
+                    btn.data('subscribed', false).text('subscribe').toggleClass('btn-outline-danger btn-outline-primary');
+                  } else {
+                    btn.text('unsubscribe');
+                  }
+                }
+              } catch {
+                // ignore
+              } finally {
+                btn.prop('disabled', false);
+              }
+            });
+            right.append(btn);
+          }
+
+          if (isWritable && ctx?.ipc && ctx?.addr != null && ctx?.channel) {
+            const input = $('<input type="text" class="form-control form-control-sm" style="max-width: 140px;">');
+            const send = $('<button class="btn btn-primary btn-sm">send</button>');
+            send.on('click', async () => {
+              const raw = String(input.val() ?? '').trim();
+              let val;
+              try {
+                if (raw === '') return;
+                if (/^(true|false|null)$/i.test(raw)) {
+                  val = JSON.parse(raw.toLowerCase());
+                } else if ((raw.startsWith('[') && raw.endsWith(']')) || (raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('"') && raw.endsWith('"'))) {
+                  val = JSON.parse(raw);
+                } else {
+                  const num = parseFloat(raw);
+                  val = Number.isFinite(num) ? num : raw;
+                }
+              } catch { val = raw; }
+              try {
+                send.prop('disabled', true).text('sending…');
+                const resp = await ctx.ipc.invoke('ts-update', {
+                  channel: ctx.channel,
+                  targetAddr: ctx.addr,
+                  endpoint: node.path,
+                  values: { [vk]: val }
+                });
+                if (resp && resp.status >= 0x80 && resp.status < 0xA0) {
+                  right.children('code').remove();
+                  right.prepend($(valueToInline(val)));
+                }
+              } catch {
+                // ignore
+              } finally {
+                send.prop('disabled', false).text('send');
+              }
+            });
+            right.append(input, send);
+          }
+
+          row.append(left, right);
+          tbl.append(row);
         }
         body.append(tbl);
       }
@@ -74,23 +174,109 @@
 
       if (hasChildren) {
         const kids = $('<div class="mt-1"></div>');
-        for (const [ck, cn] of Object.entries(node.children)) kids.append(renderNodeItem(ck, cn));
+        for (const [ck, cn] of Object.entries(node.children)) kids.append(renderNodeItem(ck, cn, ctx));
         body.append(kids);
       }
 
       det.append(body);
       item.append(det);
     } else if (hasValue) {
-      const row = $(`<div class="d-flex justify-content-between border rounded px-2 py-1">
-          <span><strong>${escapeHtml(String(title))}</strong>${node?.path ? ` <span class=\"badge bg-light text-dark\">${escapeHtml(node.path)}</span>` : ''}</span>
-          <span>${valueToInline(node.value)}</span>
-        </div>`);
+      const row = $(`<div class="d-flex align-items-center justify-content-between border rounded px-2 py-1 gap-2"></div>`);
+      const left = $(`<span><strong>${escapeHtml(String(title))}</strong>${node?.path ? ` <span class=\"badge bg-light text-dark\">${escapeHtml(node.path)}</span>` : ''}</span>`);
+      const right = $('<span class="d-flex align-items-center gap-2"></span>');
+      right.append($(valueToInline(node.value)));
+
+      const isReadable = typeof title === 'string' && title.startsWith('r');
+      const isWritable = typeof title === 'string' && title.startsWith('w');
+      if (isReadable && node?.path && ctx?.ipc && ctx?.addr != null && ctx?.channel) {
+        const btn = $('<button class="btn btn-outline-primary btn-sm">subscribe</button>');
+        btn.on('click', async () => {
+          try {
+            btn.prop('disabled', true).text('working…');
+            const fullPath = node.path;
+            // Resolve subset ID per device if not cached
+            if (ctx.subsetId == null) {
+              try {
+                const subResp = await ctx.ipc.invoke('ts-ids-for-paths', {
+                  channel: ctx.channel,
+                  targetAddr: ctx.addr,
+                  paths: ['mLive']
+                });
+                const sid = Array.isArray(subResp?.payload) ? subResp.payload[0] : null;
+                if (Number.isInteger(sid)) ctx.subsetId = sid;
+              } catch {}
+            }
+            const subscribed = btn.data('subscribed') === true;
+            if (!subscribed) {
+              const cre = await ctx.ipc.invoke('ts-create', {
+                channel: ctx.channel,
+                targetAddr: ctx.addr,
+                endpoint: (ctx.subsetId != null ? ctx.subsetId : 'mLive'),
+                value: fullPath
+              });
+              if (cre && cre.status >= 0x80 && cre.status < 0xA0) {
+                btn.data('subscribed', true).text('unsubscribe').toggleClass('btn-outline-primary btn-outline-danger');
+              } else {
+                btn.text('subscribe');
+              }
+            } else {
+              const del = await ctx.ipc.invoke('ts-delete', {
+                channel: ctx.channel,
+                targetAddr: ctx.addr,
+                endpoint: (ctx.subsetId != null ? ctx.subsetId : 'mLive'),
+                value: fullPath
+              });
+              if (del && del.status >= 0x80 && del.status < 0xA0) {
+                btn.data('subscribed', false).text('subscribe').toggleClass('btn-outline-danger btn-outline-primary');
+              } else {
+                btn.text('unsubscribe');
+              }
+            }
+          } catch {
+            // ignore
+          } finally { btn.prop('disabled', false); }
+        });
+        right.append(btn);
+      }
+      if (isWritable && node?.path && ctx?.ipc && ctx?.addr != null && ctx?.channel) {
+        const input = $('<input type="text" class="form-control form-control-sm" style="max-width: 140px;">');
+        const send = $('<button class="btn btn-primary btn-sm">send</button>');
+        send.on('click', async () => {
+          const key = title;
+          const parentPath = (node.path.includes('/')) ? node.path.substring(0, node.path.lastIndexOf('/')) : '';
+          const raw = String(input.val() ?? '').trim();
+          let val;
+          try {
+            if (raw === '') return;
+            if (/^(true|false|null)$/i.test(raw)) val = JSON.parse(raw.toLowerCase());
+            else if ((raw.startsWith('[') && raw.endsWith(']')) || (raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('"') && raw.endsWith('"'))) val = JSON.parse(raw);
+            else { const num = parseFloat(raw); val = Number.isFinite(num) ? num : raw; }
+          } catch { val = raw; }
+          try {
+            send.prop('disabled', true).text('sending…');
+            const resp = await ctx.ipc.invoke('ts-update', {
+              channel: ctx.channel,
+              targetAddr: ctx.addr,
+              endpoint: parentPath,
+              values: { [key]: val }
+            });
+            if (resp && resp.status >= 0x80 && resp.status < 0xA0) {
+              right.children('code').remove();
+              right.prepend($(valueToInline(val)));
+            }
+          } catch {}
+          finally { send.prop('disabled', false).text('send'); }
+        });
+        right.append(input, send);
+      }
+
+      row.append(left, right);
       item.append(row);
     }
     return item;
   }
 
-  function renderTree(rootNode, filterText = '') {
+  function renderTree(rootNode, filterText = '', ctx) {
     const wrap = $('<div class="d-flex flex-column"></div>');
     if (!rootNode) return wrap.append('<div class="text-muted">No data</div>'), wrap;
 
@@ -102,9 +288,9 @@
     const match = (txt) => !filtered || (txt && String(txt).toLowerCase().includes(filtered));
 
     for (const [k, n] of entries) {
-      if (!filtered) { wrap.append(renderNodeItem(k, n)); continue; }
+      if (!filtered) { wrap.append(renderNodeItem(k, n, ctx)); continue; }
       const flatText = JSON.stringify(n).toLowerCase();
-      if (match(k) || match(n?.path) || flatText.includes(filtered)) wrap.append(renderNodeItem(k, n));
+      if (match(k) || match(n?.path) || flatText.includes(filtered)) wrap.append(renderNodeItem(k, n, ctx));
     }
     if (wrap.children().length === 0) wrap.append('<div class="text-muted">No matching nodes</div>');
     return wrap;
@@ -200,7 +386,13 @@
       const addr = parseInt(v, 10);
       const tree = readTreeForAddr(addr);
       if (!tree || !tree.root) { content.empty(); status.text('No tree JSON for this device. Use Scan + Build.'); return; }
-      const ui = renderTree(tree.root, filter.val());
+      let subsetId = null;
+      try {
+        const idStr = tree?.root?.children?.mLive?.id;
+        if (typeof idStr === 'string' && idStr.startsWith('0x')) subsetId = parseInt(idStr, 16);
+      } catch {}
+      const ctx = { ipc, channel: current.channel || 'can0', addr, subsetId };
+      const ui = renderTree(tree.root, filter.val(), ctx);
       content.empty().append(ui);
       const hex = `0x${addr.toString(16).toUpperCase().padStart(2, '0')}`;
       status.text(`Loaded ${hex} (${tree.node_uid || 'unknown uid'})`);
