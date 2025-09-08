@@ -31,6 +31,8 @@ class OwnTechPlotUPlot {
             this.dataBuffer = [[], []]; // [timestamps, [series1, series2, ...]]
             this.maxPoints = 2000;
             this.lastRender = 0;
+            this._resizeObs = null;
+            this._resizeRAF = 0;
 
             this.ipc = window.require?.('electron')?.ipcRenderer;
             this.headersByDs = {};
@@ -162,6 +164,7 @@ class OwnTechPlotUPlot {
             this.container.appendTo(containerElement);
             this._initPlot();
             this._maybeUpdateHeaders(true);
+            this._bindResize();
         }
 
         _initPlot(series = null) {
@@ -207,6 +210,8 @@ class OwnTechPlotUPlot {
             };
 
             this.plot = new uPlot(opts, this.dataBuffer, this.container[0]);
+            // In case layout settles after init, try an async resize tick
+            this._requestResize();
         }
 
 
@@ -338,6 +343,16 @@ class OwnTechPlotUPlot {
                 this.plot.destroy();
                 this.plot = null;
             }
+            if (this._resizeObs) {
+                try { this._resizeObs.disconnect(); } catch {}
+                this._resizeObs = null;
+            }
+            if (this._resizeRAF) {
+                cancelAnimationFrame(this._resizeRAF);
+                this._resizeRAF = 0;
+            }
+            // Remove fallback window resize handler if used
+            try { $(window).off('resize.uplot-widget'); } catch {}
             if (this._configHandler && freeboard.off) {
                 freeboard.off('config_updated', this._configHandler);
             }
@@ -345,6 +360,42 @@ class OwnTechPlotUPlot {
 
         getHeight() {
             return 6;
+        }
+
+        _bindResize() {
+            if (this._resizeObs || !this.container || !this.container[0]) return;
+            const el = this.container[0];
+            if (typeof ResizeObserver !== 'undefined') {
+                this._resizeObs = new ResizeObserver(() => this._requestResize());
+                this._resizeObs.observe(el);
+            } else {
+                // Fallback: resize on window events
+                $(window).on('resize.uplot-widget', () => this._requestResize());
+            }
+        }
+
+        _requestResize() {
+            if (!this.plot || !this.container) return;
+            if (this._resizeRAF) cancelAnimationFrame(this._resizeRAF);
+            this._resizeRAF = requestAnimationFrame(() => {
+                this._resizeRAF = 0;
+                const w = Math.max(0, this.container.width());
+                let h = Math.max(0, this.container.height());
+                // Subtract non-plot vertical elements (title + legend) to avoid overflow
+                try {
+                    const root = this.plot.root;
+                    const titleEl = root.querySelector('.u-title');
+                    const legendEl = root.querySelector('.u-legend');
+                    const titleH = titleEl && getComputedStyle(titleEl).display !== 'none' ? titleEl.offsetHeight : 0;
+                    const legendH = legendEl && getComputedStyle(legendEl).display !== 'none' ? legendEl.offsetHeight : 0;
+                    const extra = titleH + legendH;
+                    if (extra > 0) h = Math.max(0, h - extra);
+                } catch {}
+
+                if (w && h) {
+                    try { this.plot.setSize({ width: w, height: h }); } catch {}
+                }
+            });
         }
     }
 })();
