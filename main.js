@@ -10,6 +10,7 @@ const { ThingSetCAN } = require('./js/thingset_bin');
 const { scanNodes: scanCanNodes } = require('./js/scan');
 const { CanBroadcastAggregator } = require('./js/can_broadcast_aggregator');
 const { exploreId } = require('./js/query_nodes');
+const { flashCanFirmware } = require('./js/thingset_dfu_can');
 
 let mainWindow; // reference to the main BrowserWindow
 
@@ -169,6 +170,39 @@ ipcMain.handle('get-serial-ports', async () => {
 		name: port.path,
 		value: port.path
 	}));
+});
+
+// 🚌 List CAN interfaces (Linux heuristic)
+ipcMain.handle('get-can-interfaces', async () => {
+    try {
+        const base = '/sys/class/net';
+        const entries = await fs.promises.readdir(base, { withFileTypes: true });
+        const names = [];
+        for (const e of entries) {
+            if (!e.isDirectory()) continue;
+            const n = e.name;
+            if (!/^v?sl?can\d+/i.test(n) && !/^can\d+/i.test(n)) continue;
+            // Validate by checking type (ARPHRD_CAN = 280) or existence of 'can' folder
+            let ok = false;
+            try {
+                const t = await fs.promises.readFile(path.join(base, n, 'type'), 'utf8');
+                if (parseInt(t.trim(), 10) === 280) ok = true;
+            } catch {}
+            try {
+                const st = await fs.promises.stat(path.join(base, n, 'can'));
+                if (st && st.isDirectory()) ok = true;
+            } catch {}
+            if (ok) names.push(n);
+        }
+        // Fallback: try os.networkInterfaces heuristic
+        if (names.length === 0) {
+            const ifs = Object.keys(require('os').networkInterfaces());
+            names.push(...ifs.filter(n => /^v?sl?can\d+/i.test(n) || /^can\d+/i.test(n)));
+        }
+        return names.map(n => ({ name: n, value: n }));
+    } catch (e) {
+        return [];
+    }
 });
 
 // 🚪 Open serial port with tracking and buffer setup
@@ -502,6 +536,39 @@ ipcMain.handle('start-flash', async (event, { comPort, firmwarePath, mcumgrPath:
 // ❌ Cancel flashing
 ipcMain.on('cancel-flash', () => {
     cancelFlash();
+});
+
+// 🔥 Flash firmware to a board over CAN (ThingSet DFU)
+let canFlashAbortController = null;
+ipcMain.handle('start-flash-can', async (event, { channel, filename, target = 0xA0, source = 0x00, targetBus = 0x0, sourceBus = 0x0 }) => {
+    // cancel any ongoing
+    if (canFlashAbortController) {
+        try { canFlashAbortController.abort(); } catch {}
+        canFlashAbortController = null;
+    }
+    canFlashAbortController = new AbortController();
+    const signal = canFlashAbortController.signal;
+    // Run async but return immediately
+    (async () => {
+        try {
+            await flashCanFirmware({ filename, channel, target, source, targetBus, sourceBus, signal }, (msg) => {
+                event.sender.send('flash-progress', String(msg));
+            });
+        } catch (err) {
+            const m = (err && err.message) ? err.message : String(err);
+            event.sender.send('flash-progress', `Error: ${m}`);
+        } finally {
+            event.sender.send('flash-complete');
+        }
+    })();
+    return 'started';
+});
+
+ipcMain.on('cancel-flash-can', () => {
+    if (canFlashAbortController) {
+        try { canFlashAbortController.abort(); } catch {}
+        canFlashAbortController = null;
+    }
 });
 
 // 🧹 Flush buffers for a serial port
