@@ -14,6 +14,15 @@ const { flashCanFirmware } = require('./js/thingset_dfu_can');
 
 let mainWindow; // reference to the main BrowserWindow
 
+// Emit UI activity events to renderer (used for toasts/indicators)
+function emitActivity(evt) {
+    try {
+        if (mainWindow && mainWindow.webContents) {
+            mainWindow.webContents.send('activity', { ts: Date.now(), scope: 'can', ...evt });
+        }
+    } catch {}
+}
+
 // Path to mcumgr binary, assumes it is bundled alongside the app in a tools folder
 const mcumgrBinary = process.platform === 'win32' ? 'mcumgr.exe'
     : process.platform === 'darwin' ? 'mcumgr-mac' : 'mcumgr';
@@ -201,6 +210,7 @@ ipcMain.handle('get-can-interfaces', async () => {
 
 // 📖 Read discovered ThingSet nodes from thingset/nodes.json
 ipcMain.handle('get-thingset-nodes', async () => {
+    emitActivity({ id: 'can:nodes:list', title: 'ThingSet', state: 'start', label: 'Load discovered nodes' });
     try {
         const file = path.join(process.cwd(), 'thingset', 'nodes.json');
         const text = await fs.promises.readFile(file, 'utf8');
@@ -214,20 +224,24 @@ ipcMain.handle('get-thingset-nodes', async () => {
         }
         // Sort by address
         out.sort((a, b) => a.value - b.value);
+        emitActivity({ id: 'can:nodes:list', title: 'ThingSet', state: 'done', label: 'Load discovered nodes', detail: `${out.length} nodes` });
         return out;
     } catch {
+        emitActivity({ id: 'can:nodes:list', title: 'ThingSet', state: 'error', label: 'Load discovered nodes', detail: 'not found' });
         return [];
     }
 });
 
 // 🚪 Open serial port with tracking and buffer setup
 ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eol, type = 'serialport_datasource' }) => {
+        emitActivity({ id: 'serial:open', title: path, state: 'start', label: 'Open serial port' });
         if (openPorts.has(path)) {
                 console.warn(`Port ${path} is already open.`);
                 // ensure buffers for this datasource type exist
                 const key = dsKey(path, type);
                 if (!headerBuffers.has(key)) headerBuffers.set(key, []);
                 if (!colorBuffers.has(key)) colorBuffers.set(key, []);
+                emitActivity({ id: 'serial:open', title: path, state: 'done', label: 'Serial already open' });
                 return;
         }
 
@@ -240,13 +254,15 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
 		autoOpen: false
 	});
 
-	port.open(err => {
-			if (err) {
-					console.error("Serial open error:", err.message);
-					return;
-			}
-			console.log("✅ Serial port opened:", path);
-	});
+    port.open(err => {
+                if (err) {
+                        console.error("Serial open error:", err.message);
+                        emitActivity({ id: 'serial:open', title: path, state: 'error', label: 'Open serial port', detail: err.message });
+                        return;
+                }
+                console.log("✅ Serial port opened:", path);
+                emitActivity({ id: 'serial:open', title: path, state: 'done', label: 'Serial opened' });
+    });
 
 	let rawBuffer = "";
 
@@ -289,6 +305,7 @@ ipcMain.handle("open-serial-port", async (event, { path, baudRate, separator, eo
                         }
                         fastStates.delete(path);
                         fastBuffers.delete(path);
+                        emitActivity({ id: 'serial:close', title: path, state: 'done', label: 'Serial closed' });
         });
 
 	openPorts.set(path, port);
@@ -333,6 +350,7 @@ ipcMain.handle('set-serial-colors', (_event, { path, colors, type = 'serialport_
 
 // ❌ Close port
 ipcMain.handle("close-serial-port", async (event, { path }) => {
+	emitActivity({ id: 'serial:close', title: path, state: 'start', label: 'Close serial port' });
 	const port = openPorts.get(path);
 	if (port && port.isOpen) {
 			return new Promise((resolve, reject) => {
@@ -349,10 +367,12 @@ ipcMain.handle("close-serial-port", async (event, { path }) => {
                                                         }
                                                         fastStates.delete(path);
                                                         fastBuffers.delete(path);
+                                                        emitActivity({ id: 'serial:close', title: path, state: 'done', label: 'Serial closed' });
                                                         resolve("closed");
                                         });
                         });
 	} else {
+			emitActivity({ id: 'serial:close', title: path, state: 'done', label: 'Serial already closed' });
 			return "not open";
 	}
 });
@@ -378,11 +398,15 @@ ipcMain.handle("write-serial-port", async (event, { path, data }) => {
 
 // 📂 Start CSV recording for a given port
 ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eol, order = 'old', addHeader = true, timestampMode = 'none', type = 'serialport_datasource' }) => {
+        emitActivity({ id: 'csv:record', title: path, state: 'start', label: 'Start CSV recording', detail: filePath });
         const port = openPorts.get(path);
         if (!port) {
-                throw new Error('port not open');
+                const err = 'port not open';
+                emitActivity({ id: 'csv:record', title: path, state: 'error', label: 'Start CSV recording', detail: err });
+                throw new Error(err);
         }
         if (activeRecordings.has(path)) {
+                emitActivity({ id: 'csv:record', title: path, state: 'done', label: 'Already recording' });
                 return 'already recording';
         }
         const sep = separator || ',';
@@ -454,13 +478,18 @@ ipcMain.handle('start-csv-record', async (event, { path, filePath, separator, eo
 		recording.listener = listener;
         port.on('data', listener);
         activeRecordings.set(path, recording);
-		return 'started';
+        emitActivity({ id: 'csv:record', title: path, state: 'done', label: 'CSV recording started' });
+        return 'started';
 });
 
 // 🛑 Stop CSV recording for a port
 ipcMain.handle('stop-csv-record', async (event, { path }) => {
+        emitActivity({ id: 'csv:record', title: path, state: 'start', label: 'Stop CSV recording' });
         const rec = activeRecordings.get(path);
-        if (!rec) return 'not recording';
+        if (!rec) {
+                emitActivity({ id: 'csv:record', title: path, state: 'done', label: 'Not recording' });
+                return 'not recording';
+        }
         const port = openPorts.get(path);
         if (port) port.off('data', rec.listener);
 
@@ -474,14 +503,18 @@ ipcMain.handle('stop-csv-record', async (event, { path }) => {
                 await fs.promises.writeFile(rec.filePath, content);
         }
         activeRecordings.delete(path);
+        emitActivity({ id: 'csv:record', title: path, state: 'done', label: 'CSV recording stopped' });
         return 'stopped';
 });
 
 // 💾 Save the latest fast frame dataset to CSV
 ipcMain.handle('save-fast-csv', async (event, { path, filePath, separator, eol, addHeader = true, timestampMode = 'none' }) => {
+        emitActivity({ id: 'csv:save-fast', title: path, state: 'start', label: 'Save fast dataset', detail: filePath });
         const dataset = fastBuffers.get(path);
         if (!dataset || !Array.isArray(dataset.series)) {
-                throw new Error('no dataset');
+                const err = 'no dataset';
+                emitActivity({ id: 'csv:save-fast', title: path, state: 'error', label: 'Save fast dataset', detail: err });
+                throw new Error(err);
         }
         const headers = headerBuffers.get(dsKey(path, 'fast_frame_datasource')) || [];
         const sep = separator || ',';
@@ -511,6 +544,7 @@ ipcMain.handle('save-fast-csv', async (event, { path, filePath, separator, eol, 
         }
         const content = out.join(eolStr) + eolStr;
         await fs.promises.writeFile(filePath, content);
+        emitActivity({ id: 'csv:save-fast', title: path, state: 'done', label: 'Saved fast dataset', detail: filePath });
         return 'saved';
 });
 
@@ -623,17 +657,20 @@ function ensureThingsetDir() {
 
 // Open a CAN bus on a given channel and keep it for reuse
 ipcMain.handle('can-open', async (_event, { channel = 'can0', sourceAddr = 0xEF } = {}) => {
-    if (canBuses.has(channel)) return 'already-open';
+    emitActivity({ id: 'can:open', title: `CAN ${channel}`, state: 'start', label: 'Open CAN bus' });
+    if (canBuses.has(channel)) { emitActivity({ id: 'can:open', title: `CAN ${channel}`, state: 'done', label: 'CAN already open' }); return 'already-open'; }
     const bus = await createBus({ channel });
     canBuses.set(channel, bus);
     tsClients.set(channel, new ThingSetCAN(bus, sourceAddr | 0));
+    emitActivity({ id: 'can:open', title: `CAN ${channel}`, state: 'done', label: 'CAN opened' });
     return 'opened';
 });
 
 // Close a previously opened CAN bus
 ipcMain.handle('can-close', async (_event, { channel = 'can0' } = {}) => {
+    emitActivity({ id: 'can:close', title: `CAN ${channel}`, state: 'start', label: 'Close CAN bus' });
     const bus = canBuses.get(channel);
-    if (!bus) return 'not-open';
+    if (!bus) { emitActivity({ id: 'can:close', title: `CAN ${channel}`, state: 'done', label: 'CAN already closed' }); return 'not-open'; }
     try { await bus.shutdown(); } finally {
         canBuses.delete(channel);
         tsClients.delete(channel);
@@ -643,27 +680,34 @@ ipcMain.handle('can-close', async (_event, { channel = 'can0' } = {}) => {
             canAggregators.delete(channel);
         }
     }
+    emitActivity({ id: 'can:close', title: `CAN ${channel}`, state: 'done', label: 'CAN closed' });
     return 'closed';
 });
 
 // Scan the bus for nodes and return discovered mapping; also writes thingset/nodes.json
 ipcMain.handle('can-scan-nodes', async (_event, { channel = 'can0' } = {}) => {
     ensureThingsetDir();
-    // Use bundled scanner which writes thingset/nodes.json
-    await scanCanNodes(channel).catch((e) => { throw new Error(`scan failed: ${e.message || e}`); });
-    // Read back the file and return JSON
-    const outPath = path.join(process.cwd(), 'thingset', 'nodes.json');
+    emitActivity({ id: 'can:scan', title: `CAN ${channel}`, state: 'start', label: 'Scanning nodes' });
     try {
+        // Use bundled scanner which writes thingset/nodes.json
+        await scanCanNodes(channel);
+        // Read back the file and return JSON
+        const outPath = path.join(process.cwd(), 'thingset', 'nodes.json');
         const text = await fs.promises.readFile(outPath, 'utf8');
-        return { nodes: JSON.parse(text), path: outPath };
+        const nodes = JSON.parse(text);
+        const count = nodes ? Object.keys(nodes).length : 0;
+        emitActivity({ id: 'can:scan', title: `CAN ${channel}`, state: 'done', label: 'Scanning nodes', detail: `${count} nodes` });
+        return { nodes, path: outPath };
     } catch (e) {
-        throw new Error(`failed to read nodes.json: ${e.message || e}`);
+        emitActivity({ id: 'can:scan', title: `CAN ${channel}`, state: 'error', label: 'Scanning nodes', detail: e?.message || String(e) });
+        throw new Error(`scan failed: ${e?.message || e}`);
     }
 });
 
 // Build ThingSet tree files for provided nodes or from thingset/nodes.json; returns a summary
 ipcMain.handle('can-build-trees', async (_event, { channel = 'can0', nodes = null, maxDepth = 16 } = {}) => {
     ensureThingsetDir();
+    emitActivity({ id: 'can:build', title: `CAN ${channel}`, state: 'start', label: 'Building trees' });
     // Always use a dedicated bus for tree building to avoid interference
     const bus = await createBus({ channel });
     const results = [];
@@ -686,6 +730,10 @@ ipcMain.handle('can-build-trees', async (_event, { channel = 'can0', nodes = nul
             await fs.promises.writeFile(out, JSON.stringify(tree, null, 2), 'utf8');
             results.push({ addr, out });
         }
+        emitActivity({ id: 'can:build', title: `CAN ${channel}`, state: 'done', label: 'Building trees', detail: `${results.length} trees` });
+    } catch (e) {
+        emitActivity({ id: 'can:build', title: `CAN ${channel}`, state: 'error', label: 'Building trees', detail: e?.message || String(e) });
+        throw e;
     } finally {
         await bus.shutdown();
     }
@@ -703,44 +751,107 @@ async function getClient(channel = 'can0', sourceAddr = 0xEF) {
 }
 
 ipcMain.handle('ts-get', async (_e, { channel = 'can0', targetAddr, endpoint, timeoutMs = 2000, sourceAddr = 0xEF }) => {
-    const ts = await getClient(channel, sourceAddr);
-    const resp = await ts.get(targetAddr, endpoint, timeoutMs);
-    return resp;
+    emitActivity({ id: 'ts:get', title: `CAN ${channel}`, state: 'start', label: `GET ${endpoint}`, detail: `0x${(targetAddr|0).toString(16).toUpperCase()}` });
+    try {
+        const ts = await getClient(channel, sourceAddr);
+        const resp = await ts.get(targetAddr, endpoint, timeoutMs);
+        emitActivity({ id: 'ts:get', title: `CAN ${channel}`, state: 'done', label: `GET ${endpoint}` });
+        return resp;
+    } catch (e) {
+        emitActivity({ id: 'ts:get', title: `CAN ${channel}`, state: 'error', label: `GET ${endpoint}`, detail: e?.message || String(e) });
+        throw e;
+    }
 });
 
 ipcMain.handle('ts-fetch', async (_e, { channel = 'can0', targetAddr, endpoint, items = null, timeoutMs = 2000, sourceAddr = 0xEF }) => {
-    const ts = await getClient(channel, sourceAddr);
-    return ts.fetch(targetAddr, endpoint, items, timeoutMs);
+    emitActivity({ id: 'ts:fetch', title: `CAN ${channel}`, state: 'start', label: `FETCH ${endpoint}`, detail: `0x${(targetAddr|0).toString(16).toUpperCase()}` });
+    try {
+        const ts = await getClient(channel, sourceAddr);
+        const r = await ts.fetch(targetAddr, endpoint, items, timeoutMs);
+        emitActivity({ id: 'ts:fetch', title: `CAN ${channel}`, state: 'done', label: `FETCH ${endpoint}` });
+        return r;
+    } catch (e) {
+        emitActivity({ id: 'ts:fetch', title: `CAN ${channel}`, state: 'error', label: `FETCH ${endpoint}`, detail: e?.message || String(e) });
+        throw e;
+    }
 });
 
 ipcMain.handle('ts-update', async (_e, { channel = 'can0', targetAddr, endpoint, values, timeoutMs = 2000, sourceAddr = 0xEF }) => {
-    const ts = await getClient(channel, sourceAddr);
-    return ts.update(targetAddr, endpoint, values, timeoutMs);
+    emitActivity({ id: 'ts:update', title: `CAN ${channel}`, state: 'start', label: `UPDATE ${endpoint}`, detail: `0x${(targetAddr|0).toString(16).toUpperCase()}` });
+    try {
+        const ts = await getClient(channel, sourceAddr);
+        const r = await ts.update(targetAddr, endpoint, values, timeoutMs);
+        emitActivity({ id: 'ts:update', title: `CAN ${channel}`, state: 'done', label: `UPDATE ${endpoint}` });
+        return r;
+    } catch (e) {
+        emitActivity({ id: 'ts:update', title: `CAN ${channel}`, state: 'error', label: `UPDATE ${endpoint}`, detail: e?.message || String(e) });
+        throw e;
+    }
 });
 
 ipcMain.handle('ts-create', async (_e, { channel = 'can0', targetAddr, endpoint, value, timeoutMs = 2000, sourceAddr = 0xEF }) => {
-    const ts = await getClient(channel, sourceAddr);
-    return ts.create(targetAddr, endpoint, value, timeoutMs);
+    emitActivity({ id: 'ts:create', title: `CAN ${channel}`, state: 'start', label: `CREATE ${endpoint}`, detail: `0x${(targetAddr|0).toString(16).toUpperCase()}` });
+    try {
+        const ts = await getClient(channel, sourceAddr);
+        const r = await ts.create(targetAddr, endpoint, value, timeoutMs);
+        emitActivity({ id: 'ts:create', title: `CAN ${channel}`, state: 'done', label: `CREATE ${endpoint}` });
+        return r;
+    } catch (e) {
+        emitActivity({ id: 'ts:create', title: `CAN ${channel}`, state: 'error', label: `CREATE ${endpoint}`, detail: e?.message || String(e) });
+        throw e;
+    }
 });
 
 ipcMain.handle('ts-delete', async (_e, { channel = 'can0', targetAddr, endpoint, value, timeoutMs = 2000, sourceAddr = 0xEF }) => {
-    const ts = await getClient(channel, sourceAddr);
-    return ts.delete(targetAddr, endpoint, value, timeoutMs);
+    emitActivity({ id: 'ts:delete', title: `CAN ${channel}`, state: 'start', label: `DELETE ${endpoint}`, detail: `0x${(targetAddr|0).toString(16).toUpperCase()}` });
+    try {
+        const ts = await getClient(channel, sourceAddr);
+        const r = await ts.delete(targetAddr, endpoint, value, timeoutMs);
+        emitActivity({ id: 'ts:delete', title: `CAN ${channel}`, state: 'done', label: `DELETE ${endpoint}` });
+        return r;
+    } catch (e) {
+        emitActivity({ id: 'ts:delete', title: `CAN ${channel}`, state: 'error', label: `DELETE ${endpoint}`, detail: e?.message || String(e) });
+        throw e;
+    }
 });
 
 ipcMain.handle('ts-exec', async (_e, { channel = 'can0', targetAddr, endpoint, args = [], timeoutMs = 2000, sourceAddr = 0xEF }) => {
-    const ts = await getClient(channel, sourceAddr);
-    return ts.exec(targetAddr, endpoint, args, timeoutMs);
+    emitActivity({ id: 'ts:exec', title: `CAN ${channel}`, state: 'start', label: `EXEC ${endpoint}`, detail: `0x${(targetAddr|0).toString(16).toUpperCase()}` });
+    try {
+        const ts = await getClient(channel, sourceAddr);
+        const r = await ts.exec(targetAddr, endpoint, args, timeoutMs);
+        emitActivity({ id: 'ts:exec', title: `CAN ${channel}`, state: 'done', label: `EXEC ${endpoint}` });
+        return r;
+    } catch (e) {
+        emitActivity({ id: 'ts:exec', title: `CAN ${channel}`, state: 'error', label: `EXEC ${endpoint}`, detail: e?.message || String(e) });
+        throw e;
+    }
 });
 
 ipcMain.handle('ts-paths-for-ids', async (_e, { channel = 'can0', targetAddr, ids, timeoutMs = 2000, sourceAddr = 0xEF }) => {
-    const ts = await getClient(channel, sourceAddr);
-    return ts.paths_for_ids(targetAddr, ids, timeoutMs);
+    emitActivity({ id: 'ts:paths-for-ids', title: `CAN ${channel}`, state: 'start', label: 'Paths for IDs' });
+    try {
+        const ts = await getClient(channel, sourceAddr);
+        const r = await ts.paths_for_ids(targetAddr, ids, timeoutMs);
+        emitActivity({ id: 'ts:paths-for-ids', title: `CAN ${channel}`, state: 'done', label: 'Paths for IDs' });
+        return r;
+    } catch (e) {
+        emitActivity({ id: 'ts:paths-for-ids', title: `CAN ${channel}`, state: 'error', label: 'Paths for IDs', detail: e?.message || String(e) });
+        throw e;
+    }
 });
 
 ipcMain.handle('ts-ids-for-paths', async (_e, { channel = 'can0', targetAddr, paths, timeoutMs = 2000, sourceAddr = 0xEF }) => {
-    const ts = await getClient(channel, sourceAddr);
-    return ts.ids_for_paths(targetAddr, paths, timeoutMs);
+    emitActivity({ id: 'ts:ids-for-paths', title: `CAN ${channel}`, state: 'start', label: 'IDs for paths' });
+    try {
+        const ts = await getClient(channel, sourceAddr);
+        const r = await ts.ids_for_paths(targetAddr, paths, timeoutMs);
+        emitActivity({ id: 'ts:ids-for-paths', title: `CAN ${channel}`, state: 'done', label: 'IDs for paths' });
+        return r;
+    } catch (e) {
+        emitActivity({ id: 'ts:ids-for-paths', title: `CAN ${channel}`, state: 'error', label: 'IDs for paths', detail: e?.message || String(e) });
+        throw e;
+    }
 });
 
 // =============================
@@ -758,8 +869,15 @@ ipcMain.handle('can-aggregate-start', async (_e, { channel = 'can0' } = {}) => {
         ag = new CanBroadcastAggregator(canBuses.get(channel), { channel });
         canAggregators.set(channel, ag);
     }
-    ag.start();
-    return 'ok';
+    emitActivity({ id: 'can:agg', title: `CAN ${channel}`, state: 'start', label: 'Starting aggregator' });
+    try {
+        ag.start();
+        emitActivity({ id: 'can:agg', title: `CAN ${channel}`, state: 'done', label: 'Aggregator running' });
+        return 'ok';
+    } catch (e) {
+        emitActivity({ id: 'can:agg', title: `CAN ${channel}`, state: 'error', label: 'Starting aggregator', detail: e?.message || String(e) });
+        throw e;
+    }
 });
 
 ipcMain.handle('can-aggregate-set-debug', async (_e, { channel = 'can0', enable = true } = {}) => {
@@ -772,8 +890,10 @@ ipcMain.handle('can-aggregate-set-debug', async (_e, { channel = 'can0', enable 
 ipcMain.handle('can-aggregate-stop', async (_e, { channel = 'can0' } = {}) => {
     const ag = canAggregators.get(channel);
     if (!ag) return 'not-running';
+    emitActivity({ id: 'can:agg', title: `CAN ${channel}`, state: 'start', label: 'Stopping aggregator' });
     ag.stop();
     canAggregators.delete(channel);
+    emitActivity({ id: 'can:agg', title: `CAN ${channel}`, state: 'done', label: 'Aggregator stopped' });
     return 'stopped';
 });
 
@@ -791,6 +911,7 @@ ipcMain.handle('can-setup-linux', async () => {
     }
     const scriptPath = path.join(__dirname, 'scripts', 'setup_can_linux.sh');
     // Use pkexec for GUI privilege escalation; run script through bash to avoid exec-bit requirement
+    emitActivity({ id: 'can:setup', title: 'CAN', state: 'start', label: 'Setting up CAN (Linux)' });
     return new Promise((resolve, reject) => {
         const child = spawn('pkexec', ['bash', scriptPath], {
             env: process.env,
@@ -798,8 +919,13 @@ ipcMain.handle('can-setup-linux', async () => {
         });
         child.on('error', (err) => reject(new Error(`pkexec failed: ${err.message}`)));
         child.on('exit', (code) => {
-            if (code === 0) resolve('ok');
-            else reject(new Error(`pkexec exited with code ${code}`));
+            if (code === 0) {
+                emitActivity({ id: 'can:setup', title: 'CAN', state: 'done', label: 'CAN setup complete' });
+                resolve('ok');
+            } else {
+                emitActivity({ id: 'can:setup', title: 'CAN', state: 'error', label: 'CAN setup failed', detail: `exit ${code}` });
+                reject(new Error(`pkexec exited with code ${code}`));
+            }
         });
     });
 });

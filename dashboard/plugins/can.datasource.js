@@ -2,26 +2,36 @@
   const ipcRenderer = window.require?.('electron')?.ipcRenderer;
   const isLinux = navigator.userAgent.toLowerCase().includes('linux');
 
+  // Activity toasts are generated in the backend (main.js) via IPC.
+
   async function setupCanIfLinux(channel) {
-    if (!ipcRenderer) return;
-    if (!isLinux) return;
+    if (!ipcRenderer) return true;
+    if (!isLinux) return true;
     try {
       await ipcRenderer.invoke('can-setup-linux');
+      return true;
     } catch (e) {
       console.warn('can-setup-linux failed or was cancelled:', e?.message || e);
+      return false;
     }
   }
 
   async function scanAndBuildTrees(channel) {
-    if (!ipcRenderer) return;
+    if (!ipcRenderer) return { scanned: 0, built: 0 };
+    let scanned = 0;
+    let built = 0;
+    // Scan writes thingset/nodes.json
+    const scanRes = await ipcRenderer.invoke('can-scan-nodes', { channel });
     try {
-      // Scan writes thingset/nodes.json
-      await ipcRenderer.invoke('can-scan-nodes', { channel });
-      // Build ThingSet trees per node so aggregator can map IDs to paths
-      await ipcRenderer.invoke('can-build-trees', { channel, maxDepth: 16 });
-    } catch (e) {
-      console.warn('CAN scan/build trees failed:', e?.message || e);
-    }
+      const nodes = scanRes?.nodes || {};
+      scanned = Object.keys(nodes).length;
+    } catch {}
+    // Build ThingSet trees per node so aggregator can map IDs to paths
+    const buildRes = await ipcRenderer.invoke('can-build-trees', { channel, maxDepth: 16 });
+    try {
+      built = Array.isArray(buildRes?.written) ? buildRes.written.length : 0;
+    } catch {}
+    return { scanned, built };
   }
 
   function CanDatasource(settings, updateCallback) {
@@ -158,17 +168,9 @@
       await setupCanIfLinux(ch);
       await ensureOpen();
       // Scan nodes and build trees to enable id->path mapping, then start aggregator
-      await scanAndBuildTrees(ch);
-      try {
-        await ipcRenderer.invoke('can-aggregate-start', { channel: ch });
-      } catch (e) {
-        console.warn('CAN aggregate start failed:', e?.message || e);
-      }
-      try {
-        await ipcRenderer.invoke('can-aggregate-set-debug', { channel: ch, enable: !!currentSettings.debug });
-      } catch (e) {
-        /* ignore */
-      }
+      try { await scanAndBuildTrees(ch); } catch (e) { /* backend toasts handle errors */ }
+      try { await ipcRenderer.invoke('can-aggregate-start', { channel: ch }); } catch (e) { /* backend handles */ }
+      try { await ipcRenderer.invoke('can-aggregate-set-debug', { channel: ch, enable: !!currentSettings.debug }); } catch (e) { /* ignore */ }
       updateTimer();
     })();
   }
