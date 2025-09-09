@@ -317,7 +317,7 @@ var freeboard = (function()
 										name : "col_width",
 										display_name : "Columns",
 										type : "integer",
-										default_value : 1,
+                                        default_value : 2,
 										required : true
 									}
 								]
