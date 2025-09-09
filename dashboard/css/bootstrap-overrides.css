@@ -135,3 +135,9 @@ textarea.form-control {
 .board-toolbar.vertical li {
   display: flex !important;      /* block-level flex so items stack */
 }
+
+
+/* Fix margin in DATASOURCES table */
+.sub-table {
+    margin-bottom: 0px;
+}
