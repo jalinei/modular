@@ -104,7 +104,6 @@ textarea.form-control {
  * newly added panes to overlap or ignore placement.
  */
 .gridster section { position: absolute; top: 30px; bottom: 0; left: 0; right: 0; overflow: hidden; }
-.gridster section .sub-section { height: 100%; }
 .gridster section .sub-section .widget { height: 100%; }
 
 /* Help flex children inside widgets scroll correctly */
