@@ -45,6 +45,12 @@ textarea.form-control {
   height: 30px;
 }
 
+/* Make dropdowns same width as other inputs inside modals */
+#modal_overlay .form-value .styled-select > select,
+#modal_overlay .form-value > select {
+  width: 400px !important; /* match input[type="text"] in freeboard.css */
+}
+
 #modal_overlay .form-value .input-suffix {
   line-height: 30px;
 }
@@ -60,6 +66,14 @@ textarea.form-control {
 #modal_overlay textarea.calculated-value-input {
   height: 30px !important;
   line-height: 30px;
+}
+
+/* Keep responsive parity with inputs on small screens */
+@media screen and (max-width: 960px) {
+  #modal_overlay .form-value .styled-select > select,
+  #modal_overlay .form-value > select {
+    width: 95% !important;
+  }
 }
 
 /* Freeboard/Gridster overrides to keep widgets scrollable within their box */
