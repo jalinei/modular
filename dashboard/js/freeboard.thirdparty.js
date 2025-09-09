@@ -16314,16 +16314,24 @@ new a.w;var b=new a.Ba;0<b.Rb&&a.La(b);a.b("jqueryTmplTemplateEngine",a.Ba)})()}
 			size_y: size_y
 		});
 
-		$nexts.not($exclude).each($.proxy(function(i, w)
+	$nexts.not($exclude).each($.proxy(function(i, w)
+	{
+		// In some app flows (e.g., during grid reinit), widgets may have had
+		// their jQuery data cleared and not re-registered yet. Guard against
+		// missing grid coords to avoid runtime errors while still proceeding.
+		var coords = $(w).coords && $(w).coords();
+		var wgd = coords && coords.grid;
+		if(!wgd || typeof wgd.row === 'undefined')
 		{
-			var wgd = $(w).coords().grid;
-			if(!(wgd.row <= (row + size_y - 1)))
-			{
-				return;
-			}
-			var diff = (row + size_y) - wgd.row;
-			this.move_widget_down($(w), diff);
-		}, this));
+			return; // skip until widget is registered
+		}
+		if(!(wgd.row <= (row + size_y - 1)))
+		{
+			return;
+		}
+		var diff = (row + size_y) - wgd.row;
+		this.move_widget_down($(w), diff);
+	}, this));
 
 		this.set_dom_grid_height();
 
