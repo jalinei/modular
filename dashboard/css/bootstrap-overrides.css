@@ -64,7 +64,12 @@ textarea.form-control {
 
 /* Freeboard/Gridster overrides to keep widgets scrollable within their box */
 /* Make the widget content area (section) fill the pane below the 30px header */
-.gridster .gs_w { position: relative; }
+/*
+ * IMPORTANT: Do not override .gridster .gs_w positioning.
+ * Gridster requires panes to be position:absolute so it can place them
+ * with left/top and handle collisions. Overriding to relative causes
+ * newly added panes to overlap or ignore placement.
+ */
 .gridster section { position: absolute; top: 30px; bottom: 0; left: 0; right: 0; overflow: hidden; }
 .gridster section .sub-section { height: 100%; }
 .gridster section .sub-section .widget { height: 100%; }
