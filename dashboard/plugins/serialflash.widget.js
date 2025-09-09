@@ -19,7 +19,9 @@
             this.container = $('<div class="d-flex flex-column h-100 gap-2 overflow-auto"></div>');
             this.portSelect = $('<select class="form-select form-select-sm flex-fill"></select>');
             this.refreshBtn = $('<button class="btn btn-secondary btn-sm">Refresh</button>');
-            this.useCanCbx = $('<input type="checkbox" class="form-check-input ms-2">');
+            this.mode = 'serial'; // 'serial' | 'can'
+            this.btnSerial = $('<button class="btn btn-outline-primary btn-sm active">Serial</button>');
+            this.btnCan = $('<button class="btn btn-outline-primary btn-sm">CAN</button>');
             this.canSelect = $('<select class="form-select form-select-sm flex-fill" disabled></select>');
             this.refreshCanBtn = $('<button class="btn btn-secondary btn-sm" disabled>Refresh</button>');
             this.nodeSelect = $('<select class="form-select form-select-sm flex-fill" disabled></select>');
@@ -45,10 +47,9 @@
             $(el).append(this.container);
             const modeRow = $('<div class="input-group input-group-sm mb-1 align-items-center"></div>');
             modeRow.append('<span class="input-group-text">Mode</span>');
-            modeRow.append('<span class="input-group-text">Serial</span>');
-            const canLbl = $('<label class="input-group-text">Use CAN</label>');
-            const canC = $('<div class="input-group-text"></div>').append(this.useCanCbx);
-            modeRow.append(canC, canLbl);
+            const modeBtns = $('<div class="btn-group" role="group"></div>');
+            modeBtns.append(this.btnSerial, this.btnCan);
+            modeRow.append(modeBtns);
 
             const portRow = $('<div class="input-group input-group-sm mb-1"></div>');
             portRow.append('<span class="input-group-text">Serial Port</span>', this.portSelect, this.refreshBtn);
@@ -63,9 +64,17 @@
             fileRow.append(this.fileBtn, this.fileLabel);
             this.container.append(modeRow, portRow, canRow, nodeRow, fileRow, this.startBtn, this.cancelBtn, this.progressWrapper, this.logArea);
 
-            // Toggle enable/disable rows
+            // Toggle UI by mode (hide/show rows)
             const updateModeUI = () => {
-                const useCan = this.useCanCbx.is(':checked');
+                const useCan = (this.mode === 'can');
+                // Button active state
+                this.btnSerial.toggleClass('active', !useCan);
+                this.btnCan.toggleClass('active', useCan);
+                // Show/Hide relevant rows
+                portRow.toggle(!useCan);
+                canRow.toggle(useCan);
+                nodeRow.toggle(useCan);
+                // Also keep controls disabled when hidden for safety
                 this.canSelect.prop('disabled', !useCan);
                 this.refreshCanBtn.prop('disabled', !useCan);
                 this.nodeSelect.prop('disabled', !useCan);
@@ -73,7 +82,9 @@
                 this.portSelect.prop('disabled', useCan);
                 this.refreshBtn.prop('disabled', useCan);
             };
-            this.useCanCbx.on('change', updateModeUI);
+            // Mode button handlers
+            this.btnSerial.on('click', () => { this.mode = 'serial'; updateModeUI(); });
+            this.btnCan.on('click', () => { this.mode = 'can'; updateModeUI(); });
             updateModeUI();
 
             this.fileBtn.on('click', async () => {
@@ -122,7 +133,7 @@
 
         _startFlash() {
             const filePath = this.selectedFilePath;
-            const useCan = this.useCanCbx.is(':checked');
+            const useCan = (this.mode === 'can');
             const port = this.portSelect.val();
             const canIf = this.canSelect.val();
             const nodeAddrStr = this.nodeSelect.val();
@@ -157,7 +168,7 @@
 
         _cancelFlash() {
             if (!this.ipc) return;
-            if (this.useCanCbx.is(':checked')) this.ipc.send('cancel-flash-can');
+            if (this.mode === 'can') this.ipc.send('cancel-flash-can');
             else this.ipc.send('cancel-flash');
             this.logArea.val(this.logArea.val() + 'Flash cancelled by user.\n');
         }
@@ -190,6 +201,6 @@
             }
         }
 
-        getHeight() { return 4; }
+        getHeight() { return 5; }
     }
 })();
