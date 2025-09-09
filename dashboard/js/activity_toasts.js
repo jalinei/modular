@@ -22,12 +22,35 @@
         document.head.appendChild(st);
       }
       document.body.appendChild(cont);
+      // Adjust bottom offset to avoid overlapping the Activity button
+      requestAnimationFrame(adjustToastContainerOffset);
     }
     return cont;
   }
 
+  // Keep toast container above the Activity button so first toast is visible
+  function adjustToastContainerOffset() {
+    try {
+      const cont = document.querySelector('.toast-container.activity-toasts');
+      if (!cont) return;
+      const btn = document.getElementById('activity-center-button');
+      if (!btn) {
+        cont.style.setProperty('bottom', '0.5rem', 'important');
+        return;
+      }
+      const cs = getComputedStyle(btn);
+      const btnBottom = parseFloat(cs.bottom) || 0;
+      const btnHeight = btn.offsetHeight || parseFloat(cs.height) || 32;
+      const gap = 4; // px spacing between button and first toast (reduced)
+      const offset = Math.ceil(btnBottom + btnHeight + gap);
+      cont.style.setProperty('bottom', `${offset}px`, 'important');
+    } catch { /* ignore */ }
+  }
+
   function showToast({ variant = 'info', title = 'Activity', body = '', delay = 5000 }) {
     const cont = ensureContainer();
+    // Make sure container is offset if Activity button exists
+    adjustToastContainerOffset();
     const el = document.createElement('div');
     // Compact, neutral styling with colored accent bar
     el.className = `toast bg-dark text-light border-0 shadow-sm p-0 mb-0`;
@@ -89,6 +112,7 @@
 
   function showProgressToast(key, { title = 'Task', label = '' } = {}) {
     const cont = ensureContainer();
+    adjustToastContainerOffset();
     const el = document.createElement('div');
     el.className = `toast bg-dark text-light border-0 shadow-sm p-0 mb-0`;
     el.setAttribute('role', 'alert');
@@ -268,6 +292,8 @@
       btn.innerHTML = '<span class="me-1">Activity</span><span class="badge text-bg-dark" id="activity-center-badge">0</span>';
       btn.addEventListener('click', showActivityCenter);
       document.body.appendChild(btn);
+      // Recompute toast container offset now that the button exists
+      requestAnimationFrame(adjustToastContainerOffset);
     }
 
     let modal = document.getElementById('activityCenterModal');
@@ -371,10 +397,14 @@
 
   // Initialize controls once DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ensureActivityCenter);
+    document.addEventListener('DOMContentLoaded', () => { ensureActivityCenter(); adjustToastContainerOffset(); });
   } else {
     ensureActivityCenter();
+    adjustToastContainerOffset();
   }
+
+  // Keep layout correct on resize/orientation changes
+  window.addEventListener('resize', () => { adjustToastContainerOffset(); });
 
   // Public API
   window.ActivityToasts = {
