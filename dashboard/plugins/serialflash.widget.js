@@ -33,7 +33,8 @@
             this.selectedFilePath = null;
             this.startBtn = $('<button class="btn btn-primary btn-sm">Flash Firmware</button>');
             this.cancelBtn = $('<button class="btn btn-danger btn-sm" style="display:none;">Cancel</button>');
-            this.progressWrapper = $('<div class="progress" style="height:20px; display:none;"><div class="progress-bar" role="progressbar" style="width:0%"></div></div>');
+            // Progress bar moved to Activity Center. Keep a collapsible log.
+            this.logToggle = $('<button class="btn btn-outline-secondary btn-sm">Show log</button>');
             this.logArea = $('<textarea class="form-control bg-dark text-light" readonly style="flex:1; display:none;"></textarea>');
             this._progressListener = (_e, m) => this._onProgress(m);
             this._completeListener = () => this._onComplete();
@@ -64,7 +65,7 @@
 
             const fileRow = $('<div class="input-group input-group-sm mb-1"></div>');
             fileRow.append(this.fileBtn, this.fileLabel);
-            this.container.append(modeRow, portRow, canRow, nodeRow, fileRow, this.startBtn, this.cancelBtn, this.progressWrapper, this.logArea);
+            this.container.append(modeRow, portRow, canRow, nodeRow, fileRow, this.startBtn, this.cancelBtn, this.logToggle, this.logArea);
 
             // Toggle UI by mode (hide/show rows)
             const updateModeUI = () => {
@@ -117,6 +118,13 @@
             });
             this.startBtn.on('click', () => this._startFlash());
             this.cancelBtn.on('click', () => this._cancelFlash());
+
+            // Log toggle
+            this.logToggle.on('click', () => {
+                const vis = this.logArea.is(':visible');
+                this.logArea.toggle(!vis);
+                this.logToggle.text(vis ? 'Show log' : 'Hide log');
+            });
         }
 
         async _refreshPorts() {
@@ -182,9 +190,8 @@
             }
 
             const fName = this.path ? this.path.basename(filePath) : filePath;
-            this.logArea.val(`Flashing ${fName}...\n`).show();
-            this.progressWrapper.show();
-            this.progressWrapper.find('.progress-bar').css('width','0%').text('0%');
+            this.logArea.val(`Flashing ${fName}...\n`);
+            if (this.logArea.is(':hidden')) this.logToggle.text('Show log');
             this.startBtn.hide();
             this.cancelBtn.show();
             this.selectedFilePath = filePath;
@@ -225,8 +232,6 @@
                 if (typeof addr === 'undefined') { this._flashingAll = false; this._onComplete(); return; }
                 const hex = '0x' + addr.toString(16).toUpperCase().padStart(2, '0');
                 this.logArea.val(this.logArea.val() + `\n=== Flashing node ${hex} ===\n`);
-                const bar = this.progressWrapper.find('.progress-bar');
-                bar.css('width','0%').text('0%');
                 const onCompleteOnce = () => {
                     this.ipc.removeListener('flash-complete', onCompleteOnce);
                     setTimeout(() => next(), 300);
@@ -248,15 +253,8 @@
         }
 
         _onProgress(message) {
-            const bar = this.progressWrapper.find('.progress-bar');
             this.logArea.val(this.logArea.val() + message + '\n');
             this.logArea.scrollTop(this.logArea[0].scrollHeight);
-            const m = message.match(/(\d{1,3}(?:\.\d+)?)%/);
-            if (m) {
-                const p = parseFloat(m[1]);
-                bar.css('width', p + '%');
-                bar.text(m[1] + '%');
-            }
         }
 
         _onComplete() {

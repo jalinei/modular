@@ -562,6 +562,7 @@ ipcMain.handle('choose-firmware-file', async () => {
 
 // 🔥 Flash firmware to a board over serial
 ipcMain.handle('start-flash', async (event, { comPort, firmwarePath, mcumgrPath: userPath }) => {
+    emitActivity({ id: 'dfu:serial', title: comPort, state: 'start', label: 'Serial DFU', detail: firmwarePath });
     const existing = openPorts.get(comPort);
     if (existing && existing.isOpen) {
         await new Promise(res => existing.close(err => {
@@ -575,8 +576,17 @@ ipcMain.handle('start-flash', async (event, { comPort, firmwarePath, mcumgrPath:
     return new Promise(resolve => {
         flashFirmware(
             { comPort, firmwarePath, mcumgrPath: userPath || mcumgrPath },
-            msg => event.sender.send('flash-progress', msg),
-            () => event.sender.send('flash-complete')
+            msg => {
+                const m = String(msg);
+                event.sender.send('flash-progress', m);
+                if (m.toLowerCase().includes('error')) {
+                    emitActivity({ id: 'dfu:serial', title: comPort, state: 'error', label: 'Serial DFU', detail: m });
+                }
+            },
+            () => {
+                event.sender.send('flash-complete');
+                emitActivity({ id: 'dfu:serial', title: comPort, state: 'done', label: 'Serial DFU complete' });
+            }
         );
         resolve();
     });
