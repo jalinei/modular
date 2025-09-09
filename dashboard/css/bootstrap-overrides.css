@@ -68,6 +68,25 @@ textarea.form-control {
   line-height: 30px;
 }
 
+/* Remove unnecessary scrollbars on single-line expression editor */
+#modal_overlay textarea.calculated-value-input {
+  overflow: hidden !important;   /* freeboard.css sets overflow:auto */
+}
+
+/* Vertically center text inside the single-line textarea */
+#modal_overlay textarea.calculated-value-input {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: 28px !important; /* 30px height - 2px borders = 28px */
+}
+
+/* Normalize sizing so height includes padding/border in modals */
+#modal_overlay input,
+#modal_overlay select,
+#modal_overlay textarea {
+  box-sizing: border-box;
+}
+
 /* Keep responsive parity with inputs on small screens */
 @media screen and (max-width: 960px) {
   #modal_overlay .form-value .styled-select > select,
