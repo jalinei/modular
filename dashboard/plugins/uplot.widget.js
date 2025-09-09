@@ -13,8 +13,9 @@
             { name: "duration", display_name: "Display Duration (ms)", type: "number", default_value: 20000 },
             { name: "refreshRate", display_name: "Refresh Rate (ms)", type: "number", default_value: 1000 },
             { name: "yLabel", display_name: "Y Axis Label", type: "text", default_value: "Value" },
-            { name: "yMin", display_name: "Y Min", type: "number" },
-            { name: "yMax", display_name: "Y Max", type: "number" },
+            // Use text inputs to make these optional without validation errors
+            { name: "yMin", display_name: "Y Min (optional)", type: "text" },
+            { name: "yMax", display_name: "Y Max (optional)", type: "text" },
             { name: "showLegend", display_name: "Show Legend", type: "boolean", default_value: true }
         ],
         newInstance: function (settings, newInstanceCallback) {
@@ -186,13 +187,7 @@ class OwnTechPlotUPlot {
                 },
                 scales: {
                     x: { time: true },
-                    y: {
-                        auto: this.settings.yMin === undefined && this.settings.yMax === undefined,
-                        range: [
-                            this.settings.yMin !== undefined ? this.settings.yMin : null,
-                            this.settings.yMax !== undefined ? this.settings.yMax : null,
-                        ]
-                    }
+                    y: {}
                 },
                 axes: [
                     {
@@ -208,8 +203,9 @@ class OwnTechPlotUPlot {
                 ],
                 series: resolvedSeries
             };
-
             this.plot = new uPlot(opts, this.dataBuffer, this.container[0]);
+            // Apply initial Y range (manual or computed)
+            this._applyYAxisRange();
             // In case layout settles after init, try an async resize tick
             this._requestResize();
         }
@@ -245,6 +241,8 @@ class OwnTechPlotUPlot {
             const refresh = parseInt(this.settings.refreshRate) || 1000;
             if (now - this.lastRender >= refresh) {
                 this.plot.setData(this.dataBuffer);
+                // Update y-axis scaling if not fully manual
+                this._applyYAxisRange();
                 this.lastRender = now;
             }
         }
@@ -264,6 +262,7 @@ class OwnTechPlotUPlot {
             this.dataBuffer = [dataset.timestamps, ...dataset.series];
             if (this.plot) {
                 this.plot.setData(this.dataBuffer);
+                this._applyYAxisRange();
                 this.lastRender = Date.now();
             }
         }
@@ -300,6 +299,10 @@ class OwnTechPlotUPlot {
 
             if (needsReset && this.plot) {
                 this._resetPlot();
+            }
+            // If only refresh/title changed, still re-apply y range in case bounds changed
+            if (!needsReset && this.plot) {
+                this._applyYAxisRange();
             }
             if (titleChanged && this.plot) {
                 const tEl = this.plot.root.querySelector('.u-title');
@@ -360,6 +363,126 @@ class OwnTechPlotUPlot {
 
         getHeight() {
             return 6;
+        }
+
+        // Compute smart defaults and/or apply manual Y range
+        _applyYAxisRange() {
+            if (!this.plot) return;
+
+            const yMin = this._parseMaybeNumber(this.settings.yMin);
+            const yMax = this._parseMaybeNumber(this.settings.yMax);
+            const hasMin = yMin != null;
+            const hasMax = yMax != null;
+
+            // Compute current data range across all series
+            const [dataMin, dataMax] = this._computeDataYRange();
+
+            let min = dataMin;
+            let max = dataMax;
+
+            if (hasMin && hasMax) {
+                min = yMin;
+                max = yMax;
+            } else if (hasMin && !hasMax) {
+                min = yMin;
+                if (isFinite(dataMax)) {
+                    max = Math.max(dataMax, min + this._niceDelta(Math.abs(dataMax - min)));
+                } else {
+                    max = min + 1; // fallback span
+                }
+            } else if (!hasMin && hasMax) {
+                max = yMax;
+                if (isFinite(dataMin)) {
+                    min = Math.min(dataMin, max - this._niceDelta(Math.abs(max - dataMin)));
+                } else {
+                    min = max - 1; // fallback span
+                }
+            } else {
+                // No manual bounds: apply smart padding and nice rounding
+                const padded = this._paddedNiceRange(dataMin, dataMax);
+                min = padded[0];
+                max = padded[1];
+            }
+
+            if (!isFinite(min) || !isFinite(max) || min === max) {
+                // Safe default if no data or degenerate
+                const mid = isFinite(min) ? min : (isFinite(max) ? max : 0);
+                min = mid - 0.5;
+                max = mid + 0.5;
+            }
+
+            try {
+                this.plot.setScale('y', { min, max });
+            } catch (e) {
+                // ignore scaling errors
+            }
+        }
+
+        _parseMaybeNumber(val) {
+            if (val === undefined || val === null) return null;
+            if (typeof val === 'number') return isFinite(val) ? val : null;
+            if (typeof val === 'string') {
+                const trimmed = val.trim();
+                if (trimmed === '') return null;
+                const n = parseFloat(trimmed);
+                return isFinite(n) ? n : null;
+            }
+            return null;
+        }
+
+        _computeDataYRange() {
+            let min = Infinity;
+            let max = -Infinity;
+
+            for (let s = 1; s < this.dataBuffer.length; s++) {
+                const arr = this.dataBuffer[s] || [];
+                for (let i = 0; i < arr.length; i++) {
+                    const v = arr[i];
+                    if (v == null) continue;
+                    if (!isFinite(v)) continue;
+                    if (v < min) min = v;
+                    if (v > max) max = v;
+                }
+            }
+
+            if (min === Infinity || max === -Infinity) return [NaN, NaN];
+            return [min, max];
+        }
+
+        _paddedNiceRange(min, max) {
+            if (!isFinite(min) || !isFinite(max)) return [0, 1];
+            if (min === max) {
+                const span = Math.max(1e-6, Math.abs(min) * 0.1);
+                return [min - span, max + span];
+            }
+            const span = max - min;
+            const pad = span * 0.1; // 10% padding
+            const rawMin = min - pad;
+            const rawMax = max + pad;
+            return this._niceBounds(rawMin, rawMax);
+        }
+
+        _niceBounds(min, max) {
+            // Round bounds to "nice" numbers to avoid awkward decimals
+            const span = max - min;
+            if (!isFinite(span) || span <= 0) return [min, max];
+            const step = this._niceDelta(span / 8); // target ~8 ticks
+            const niceMin = Math.floor(min / step) * step;
+            const niceMax = Math.ceil(max / step) * step;
+            return [niceMin, niceMax];
+        }
+
+        _niceDelta(raw) {
+            if (!isFinite(raw) || raw <= 0) return 1;
+            const exp = Math.floor(Math.log10(raw));
+            const frac = raw / Math.pow(10, exp);
+            let niceFrac;
+            if (frac <= 1) niceFrac = 1;
+            else if (frac <= 2) niceFrac = 2;
+            else if (frac <= 2.5) niceFrac = 2.5;
+            else if (frac <= 5) niceFrac = 5;
+            else niceFrac = 10;
+            return niceFrac * Math.pow(10, exp);
         }
 
         _bindResize() {
