@@ -224,6 +224,9 @@ function DialogBox(contentElement, title, okTitle, cancelTitle, okCallback)
 
 	function closeModal()
 	{
+		// Remove key handler when closing to avoid leaks
+		$(document).off('keydown.dialog');
+
 		overlay.fadeOut(200, function()
 		{
 			$(this).remove();
@@ -263,6 +266,42 @@ function DialogBox(contentElement, title, okTitle, cancelTitle, okCallback)
 			closeModal();
 		});
 	}
+
+	// Bind Enter to trigger OK inside the modal (excluding textareas)
+	$(document).on('keydown.dialog', function(e) {
+		// Only when a modal overlay is present
+		if ($('#modal_overlay').length === 0) return;
+
+		// Ignore modifier combinations
+		if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+
+		// Do not hijack Enter in multiline inputs
+		var tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
+		if (tag === 'TEXTAREA') return;
+
+		if (e.key === 'Enter' || e.keyCode === 13) {
+			var okBtn = $('#dialog-ok', overlay);
+			if (okBtn.length && okBtn.is(':visible')) {
+				// Flush latest field values into change-bound handlers.
+				// Avoid retriggering the plugin type selector which resets settings.
+				var $fields = $('input, textarea, select', overlay).filter(function() {
+					return $(this).closest('#setting-row-plugin-types').length === 0;
+				});
+				$fields.trigger('change');
+				okBtn.trigger('click');
+				e.preventDefault();
+			}
+		}
+
+		// ESC cancels the modal if available
+		if (e.key === 'Escape' || e.keyCode === 27) {
+			var cancelBtn = $('#dialog-cancel', overlay);
+			if (cancelBtn.length && cancelBtn.is(':visible')) {
+				cancelBtn.trigger('click');
+				e.preventDefault();
+			}
+		}
+	});
 
 	overlay.append(modalDialog);
 	$("body").append(overlay);
@@ -1668,13 +1707,15 @@ PluginEditor = function(jsEditor, valueEditor)
 						{
 							var input = $('<input type="text">').appendTo(valueCell).change(function()
 							{
-								if(settingDef.type == "number")
+								var rawVal = $(this).val();
+								if (settingDef.type == "number")
 								{
-									newSettings.settings[settingDef.name] = Number($(this).val());
+									// Preserve empty as empty to satisfy required/number validation
+									newSettings.settings[settingDef.name] = (rawVal === "" ? "" : Number(rawVal));
 								}
 								else
 								{
-									newSettings.settings[settingDef.name] = $(this).val();
+									newSettings.settings[settingDef.name] = rawVal;
 								}
 							});
 
